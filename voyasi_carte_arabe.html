@@ -257,8 +257,8 @@ var map=L.map('voy-map',{zoomControl:true}).setView([25.0,45.0],5);
 window._leafMap=map;
 // Voyasi Worker Arabic → MapTiler avec language=ar (route /api/maptiles-ar)
 // ⚠ Voir le snippet Worker ci-dessous pour activer cette route
-L.tileLayer('https://voyasi.slimabbar.workers.dev/api/maptiles-ar/{z}/{x}/{y}.png',{
-  attribution:'© MapTiler © OSM', maxZoom:20
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
+  attribution:'© OpenStreetMap © CARTO', subdomains:'abcd', maxZoom:20
 }).addTo(map);
 
 var clusters=L.markerClusterGroup({chunkedLoading:true,maxClusterRadius:50,
