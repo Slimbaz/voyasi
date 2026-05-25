@@ -251,8 +251,8 @@ function gi(t){ return IC[t]||IC.def; }
 var map=L.map('voy-map',{zoomControl:true}).setView([33.8869,9.5375],6);
 window._leafMap=map;
 // Tile: Voyasi Worker → MapTiler (labels latins/français)
-L.tileLayer('https://voyasi.slimabbar.workers.dev/api/maptiles/{z}/{x}/{y}.png',{
-  attribution:'© MapTiler © OSM', maxZoom:20
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
+  attribution:'© OpenStreetMap © CARTO', subdomains:'abcd', maxZoom:20
 }).addTo(map);
 
 var clusters=L.markerClusterGroup({chunkedLoading:true,maxClusterRadius:50,
