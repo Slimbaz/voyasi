@@ -138,16 +138,28 @@
     }
 
     /* ── Marker ── */
-    .vmk {
-      background:#fff; border-radius:24px; padding:3px 7px; font-size:17px;
-      box-shadow:0 2px 8px rgba(0,0,0,.22); cursor:pointer; line-height:1;
-      border:2px solid transparent;
-    }
-    .vmk.church-mk  { border-color:#C8963E; }
-    .vmk.mosque-mk  { border-color:#5a9a6e; }
-    .vmk.port-mk    { border-color:#4a7fa0; }
-    .vmk.monument-mk { border-color:#8a6aaa; }
-    .vmk.museum-mk  { border-color:#c06060; }
+    .vmk { background:#fff; border-radius:28px; padding:3px 7px; font-size:18px;
+      box-shadow:0 2px 10px rgba(0,0,0,.25); cursor:pointer; line-height:1;
+      border:2.5px solid transparent; transition:.15s; }
+    .vmk:hover { transform:scale(1.15); }
+    .mosque-mk       { border-color:#1a7a5e; }
+    .church-mk       { border-color:#C8963E; }
+    .synagogue-mk    { border-color:#6a5acd; }
+    .pyramid-mk      { border-color:#e8a020; background:#fffbf0; }
+    .ruins-mk        { border-color:#9b7653; }
+    .amphitheatre-mk { border-color:#b05050; }
+    .castle-mk       { border-color:#607080; }
+    .palace-mk       { border-color:#9b5a9b; }
+    .lighthouse-mk   { border-color:#ff9800; }
+    .monument-mk     { border-color:#8a6aaa; }
+    .museum-mk       { border-color:#c06060; }
+    .tower-mk        { border-color:#37474f; }
+    .hotel-mk        { border-color:#2196F3; }
+    .park-mk         { border-color:#4caf50; }
+    .beach-mk        { border-color:#00bcd4; }
+    .peak-mk         { border-color:#78909c; }
+    .port-mk         { border-color:#0077b6; }
+    .attraction-mk   { border-color:#ff5722; }
 
     /* Leaflet cluster override */
     .marker-cluster-small  { background:#C8963E44; }
@@ -215,44 +227,19 @@ window.addEventListener('orientationchange',function(){setTimeout(setSize,300);}
 
 // ── Icons & labels ──
 var IC = {
-  all:'\uD83D\uDDFA',
-  church:'\u26EA',         // ⛪
-  mosque:'\uD83D\uDD4C',   // 🕌
-  monument:'\uD83C\uDFDB', // 🏛
-  ruins:'\uD83C\uDFFA',    // 🏺
-  museum:'\uD83C\uDFDB',   // 🏛
-  castle:'\uD83C\uDFF0',   // 🏰
-  port:'\u2693',           // ⚓
-  attraction:'\uD83D\uDCCD', // 📍
-  nature:'\uD83C\uDF32',   // 🌲
-  def:'\uD83D\uDCCD'
+  all:'🗺', mosque:'🕌', church:'⛪', synagogue:'🕍', temple:'🛕',
+  pyramid:'🔺', amphitheatre:'🏟', castle:'🏰', palace:'🏯', ruins:'🏺',
+  lighthouse:'🗼', monument:'🗿', museum:'🏛', tower:'🏙', hotel:'🏨',
+  park:'🌿', beach:'🏖', peak:'⛰', port:'⚓', attraction:'📍',
+  viewpoint:'🔭', def:'📌'
 };
-var TL = {
-  all:'Tous', church:'Églises ✓', mosque:'Mosquées ★',
-  monument:'Monuments', ruins:'Archéo', museum:'Musées',
-  castle:'Châteaux', port:'Ports ⚓', attraction:'Attractions', nature:'Nature'
-};
-// Type label for popup
-var TYPELABEL = {
-  church:'Église', mosque:'Mosquée', monument:'Monument historique',
-  ruins:'Site archéologique', museum:'Musée', castle:'Château / Forteresse',
-  port:'Port / Môle', attraction:'Attraction touristique', nature:'Site naturel',
-  def:'Site'
-};
-var TYPECSS = {
-  church:'church-mk', mosque:'mosque-mk', port:'port-mk',
-  monument:'monument-mk', museum:'museum-mk', ruins:'monument-mk',
-  castle:'monument-mk', attraction:'monument-mk', nature:'monument-mk'
-};
-
-function gi(t){ return IC[t]||IC.def; }
 
 // ── Map setup ──
 var map=L.map('voy-map',{zoomControl:true}).setView([33.8869,9.5375],6);
 window._leafMap=map;
 // Tile: Voyasi Worker → MapTiler (labels latins/français)
-L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
-  attribution:'© OpenStreetMap © CARTO', subdomains:'abcd', maxZoom:20
+L.tileLayer('https://voyasi.slimabbar.workers.dev/api/maptiles/{z}/{x}/{y}.png',{
+  attribution:'© MapTiler © OSM', maxZoom:20
 }).addTo(map);
 
 var clusters=L.markerClusterGroup({chunkedLoading:true,maxClusterRadius:50,
@@ -279,19 +266,30 @@ function bestName(t){
 
 // ── Type detection ──
 function getType(t){
-  if(t.harbour==='yes'||t['seamark:type']==='harbour'||t.landuse==='harbour') return 'port';
-  if(t.amenity==='ferry_terminal') return 'port';
-  if(t.historic==='castle'||t.historic==='palace'||t.historic==='fort') return 'castle';
-  if(t.historic==='archaeological_site'||t.historic==='ruins') return 'ruins';
-  if(t.tourism==='museum'||t.amenity==='museum') return 'museum';
-  if(t.natural==='peak'||t.natural==='waterfall'||t.natural==='volcano') return 'nature';
+  if(t.harbour==='yes'||t['seamark:type']==='harbour'||t.landuse==='harbour'||t.amenity==='ferry_terminal'||t.man_made==='pier') return 'port';
+  if(t.tourism==='hotel') return 'hotel';
+  if(t.boundary==='national_park'||t.leisure==='nature_reserve'||t.leisure==='park') return 'park';
+  if(t.natural==='beach') return 'beach';
+  if(t.natural==='peak'||t.natural==='volcano') return 'peak';
   if(t.amenity==='place_of_worship'){
-    if(t.religion==='muslim') return 'mosque';
+    if(t.religion==='muslim')    return 'mosque';
     if(t.religion==='christian') return 'church';
-    if(t.religion==='jewish') return 'monument';
+    if(t.religion==='jewish')    return 'synagogue';
+    return 'temple';
   }
-  if(t.historic==='monument'||t.historic==='memorial'||t.historic) return 'monument';
-  if(t.tourism==='attraction') return 'attraction';
+  if(t.historic==='pyramid')                                            return 'pyramid';
+  if(t.historic==='amphitheatre'||t.historic==='amphitheater')          return 'amphitheatre';
+  if(t.historic==='castle'||t.historic==='fort'||t.historic==='fortress'||t.historic==='city_gate') return 'castle';
+  if(t.historic==='palace')                                             return 'palace';
+  if(t.historic==='archaeological_site'||t.historic==='ruins')          return 'ruins';
+  if(t.historic==='lighthouse'||t.man_made==='lighthouse')              return 'lighthouse';
+  if(t.historic==='monument'||t.historic==='memorial'||t.historic==='statue') return 'monument';
+  if(t.historic==='temple')                                             return 'temple';
+  if(t.tourism==='museum'||t.amenity==='museum')                        return 'museum';
+  if(t.man_made==='tower'||t.building==='skyscraper'||t.building==='tower') return 'tower';
+  if(t.tourism==='viewpoint')                                           return 'viewpoint';
+  if(t.historic)                                                        return 'ruins';
+  if(t.tourism==='attraction')                                          return 'attraction';
   return 'def';
 }
 
@@ -394,76 +392,101 @@ function applyFilter(type){
   toast(TL[type]+' : '+visible+' sites');
 }
 
-// ── Progressive load via Overpass ──
-// LOGIC LATINE: ALL churches + MAJOR mosques (wikipedia) + famous monuments + ports
-async function loadArea(){
-  if(isLoading) return;
-  if(map.getZoom()<9){toast('Zoomez (niveau 9+) pour charger les sites');return;}
-  var key=map.getZoom()+'_'+map.getCenter().lat.toFixed(2)+'_'+map.getCenter().lng.toFixed(2);
-  if(loadedBoxes.has(key)) return;
-  isLoading=true; loadedBoxes.set(key,true);
-  var bar=document.getElementById('vbar'); bar.style.display='block'; bar.style.transform='scaleX(.6)';
+// ── TWO-STAGE LOADING ──
+// Stage 1 zoom 7+: monuments célèbres (wikidata)
+// Stage 2 zoom 11+: TOUTES les églises locales
+var loadingFamous=false, loadingLocal=false;
+var famousBoxes=new Map(), localBoxes=new Map();
+
+async function loadFamous(){
+  if(loadingFamous||map.getZoom()<7) return;
+  var b=map.getBounds(), key='F_'+map.getZoom()+'_'+b.getCenter().lat.toFixed(1)+'_'+b.getCenter().lng.toFixed(1);
+  if(famousBoxes.has(key)) return;
+  loadingFamous=true; famousBoxes.set(key,true); showBar();
   try{
-    var b=map.getBounds(), s=b.getSouth(), w=b.getWest(), n=b.getNorth(), e=b.getEast();
-    var bbox=s+','+w+','+n+','+e;
-    // CARTE LATINE:
-    // - TOUTES les églises (avec nom)
-    // - Seulement les GRANDES mosquées (avec wikipedia)
-    // - Monuments célèbres (avec wikipedia)
-    // - Sites archéologiques célèbres (avec wikipedia)
-    // - Musées célèbres (avec wikipedia)
-    // - Tous les ports/môles (avec nom)
-    var q='[out:json][timeout:30][maxsize:3000000];('
-      +'node["amenity"="place_of_worship"]["religion"="christian"]["name"]('+bbox+');'
-      +'way["amenity"="place_of_worship"]["religion"="christian"]["name"]('+bbox+');'
-      +'node["amenity"="place_of_worship"]["religion"="muslim"]["wikipedia"]('+bbox+');'
-      +'way["amenity"="place_of_worship"]["religion"="muslim"]["wikipedia"]('+bbox+');'
-      +'node["historic"]["wikipedia"]["name"]('+bbox+');'
-      +'way["historic"]["wikipedia"]["name"]('+bbox+');'
-      +'relation["historic"]["wikipedia"]["name"]('+bbox+');'
-      +'node["tourism"="museum"]["wikipedia"]["name"]('+bbox+');'
-      +'node["tourism"="attraction"]["wikipedia"]["name"]('+bbox+');'
-      +'node["harbour"="yes"]["name"]('+bbox+');'
-      +'node["seamark:type"="harbour"]["name"]('+bbox+');'
-      +'node["landuse"="harbour"]["name"]('+bbox+');'
-      +');out center 400;';
-
-    var ctrl=new AbortController(), timer=setTimeout(function(){ctrl.abort();},25000);
-    var resp=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:'data='+encodeURIComponent(q),signal:ctrl.signal});
-    clearTimeout(timer);
-    if(!resp.ok) throw new Error('HTTP '+resp.status);
-    var data=await resp.json(), added=0;
-
-    for(var i=0;i<data.elements.length;i++){
-      var el=data.elements[i], oid=el.type+'-'+el.id;
-      if(loadedIds.has(oid)) continue; loadedIds.add(oid);
-      var lat=el.lat||(el.center&&el.center.lat);
-      var lon=el.lon||(el.center&&el.center.lon);
-      if(!lat||!lon) continue;
-      var tags=el.tags||{}, name=bestName(tags);
-      if(!name) continue;
-      var type=getType(tags);
-      var wu='';
-      if(tags.wikipedia){
-        var wp=tags.wikipedia.split(':');
-        wu=wp.length===2?'https://'+wp[0]+'.wikipedia.org/wiki/'+wp[1].replace(/ /g,'_'):'https://fr.wikipedia.org/wiki/'+tags.wikipedia.replace(/ /g,'_');
-      }
-      addMarker(lat,lon,name,type,wu,tags.wikidata||null);
-      added++;
-    }
-    if(added>0) toast('+'+added+' sites (total: '+total+')',2000);
-    else toast('Aucun nouveau site dans cette zone',1500);
-  }catch(err){
-    loadedBoxes.delete(key);
-    if(err.name!=='AbortError') toast('Erreur chargement: '+err.message,3000);
-  }finally{
-    isLoading=false;
-    bar.style.transform='scaleX(1)';
-    setTimeout(function(){bar.style.display='none';bar.style.transform='scaleX(0)';},300);
-  }
+    var s=b.getSouth(),w=b.getWest(),n=b.getNorth(),e=b.getEast(),bb=s+','+w+','+n+','+e;
+    var q='[out:json][timeout:35][maxsize:6000000];('
+      +'node["historic"]["wikidata"]["name"]('+bb+');'
+      +'way["historic"]["wikidata"]["name"]('+bb+');'
+      +'relation["historic"]["wikidata"]["name"]('+bb+');'
+      +'node["man_made"="tower"]["wikidata"]["name"]('+bb+');'
+      +'way["man_made"="tower"]["wikidata"]["name"]('+bb+');'
+      +'way["building"="skyscraper"]["wikidata"]["name"]('+bb+');'
+      +'node["tourism"="attraction"]["wikidata"]["name"]('+bb+');'
+      +'way["tourism"="attraction"]["wikidata"]["name"]('+bb+');'
+      +'node["tourism"="museum"]["wikidata"]["name"]('+bb+');'
+      +'way["tourism"="museum"]["wikidata"]["name"]('+bb+');'
+      +'node["amenity"="place_of_worship"]["religion"="muslim"]["wikidata"]('+bb+');'
+      +'way["amenity"="place_of_worship"]["religion"="muslim"]["wikidata"]('+bb+');'
+      +'node["tourism"="hotel"]["stars"~"^[45]"]["name"]('+bb+');'
+      +'way["tourism"="hotel"]["stars"~"^[45]"]["name"]('+bb+');'
+      +'node["tourism"="hotel"]["wikidata"]["name"]('+bb+');'
+      +'relation["boundary"="national_park"]["name"]('+bb+');'
+      +'way["boundary"="national_park"]["name"]('+bb+');'
+      +'way["leisure"="nature_reserve"]["name"]('+bb+');'
+      +'relation["leisure"="nature_reserve"]["name"]('+bb+');'
+      +'node["natural"="peak"]["ele"]["name"]('+bb+');'
+      +'node["natural"="beach"]["wikidata"]["name"]('+bb+');'
+      +'way["natural"="beach"]["wikidata"]["name"]('+bb+');'
+      +'node["harbour"="yes"]["name"]('+bb+');'
+      +'way["harbour"="yes"]["name"]('+bb+');'
+      +'node["seamark:type"="harbour"]["name"]('+bb+');'
+      +'node["amenity"="ferry_terminal"]["name"]('+bb+');'
+      +'way["landuse"="harbour"]["name"]('+bb+');'
+      +'node["man_made"="pier"]["name"]('+bb+');'
+      +');out center 700;';
+    var added=await runQuery(q,'fr');
+    toast('+'+total+' sites chargés');
+  }catch(err){ famousBoxes.delete(key); if(err.name!=='AbortError') toast('Erreur: '+err.message,3000); }
+  finally{ loadingFamous=false; hideBar(); }
 }
-map.on('moveend zoomend',function(){clearTimeout(ltimer);ltimer=setTimeout(loadArea,600);});
-setTimeout(loadArea,700);
+
+async function loadLocal(){
+  if(loadingLocal||map.getZoom()<11) return;
+  var b=map.getBounds(), key='L_'+map.getZoom()+'_'+b.getCenter().lat.toFixed(2)+'_'+b.getCenter().lng.toFixed(2);
+  if(localBoxes.has(key)) return;
+  loadingLocal=true; localBoxes.set(key,true); showBar();
+  try{
+    var s=b.getSouth(),w=b.getWest(),n=b.getNorth(),e=b.getEast(),bb=s+','+w+','+n+','+e;
+    var q='[out:json][timeout:25][maxsize:4000000];('
+      +'node["amenity"="place_of_worship"]["religion"="christian"]["name"]('+bb+');'
+      +'way["amenity"="place_of_worship"]["religion"="christian"]["name"]('+bb+');'
+      +');out center 1000;';
+    await runQuery(q,'fr');
+  }catch(e){ localBoxes.delete(key); }
+  finally{ loadingLocal=false; hideBar(); }
+}
+
+async function runQuery(q,lang){
+  var ctrl=new AbortController(),t2=setTimeout(function(){ctrl.abort();},30000);
+  var resp=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:'data='+encodeURIComponent(q),signal:ctrl.signal});
+  clearTimeout(t2);
+  if(!resp.ok) throw new Error('HTTP '+resp.status);
+  var data=await resp.json(), added=0;
+  for(var i=0;i<data.elements.length;i++){
+    var el=data.elements[i],oid=el.type+'-'+el.id;
+    if(loadedIds.has(oid)) continue; loadedIds.add(oid);
+    var lat=el.lat||(el.center&&el.center.lat), lon=el.lon||(el.center&&el.center.lon);
+    if(!lat||!lon) continue;
+    var tags=el.tags||{}, name=bestName(tags);
+    if(!name) continue;
+    var type=getType(tags), wu='';
+    if(tags.wikipedia){
+      var wp=tags.wikipedia.split(':');
+      wu=wp.length===2?'https://'+wp[0]+'.wikipedia.org/wiki/'+wp[1].replace(/ /g,'_')
+                      :'https://'+(lang||'fr')+'.wikipedia.org/wiki/'+tags.wikipedia.replace(/ /g,'_');
+    }
+    addMarker(lat,lon,name,type,wu,tags.wikidata||null);
+    added++;
+  }
+  return added;
+}
+
+function showBar(){var b=document.getElementById('vbar');b.style.display='block';b.style.transform='scaleX(.6)';}
+function hideBar(){var b=document.getElementById('vbar');b.style.transform='scaleX(1)';setTimeout(function(){b.style.display='none';b.style.transform='scaleX(0)';},300);}
+function triggerLoad(){clearTimeout(ltimer);ltimer=setTimeout(function(){loadFamous();if(map.getZoom()>=11)loadLocal();},600);}
+map.on('moveend zoomend',triggerLoad);
+setTimeout(function(){loadFamous();},700);setTimeout(loadArea,700);
 
 // ── Search ──
 var si=document.getElementById('voy-si'), sr=document.getElementById('voy-res'), stimer;
@@ -507,14 +530,38 @@ document.getElementById('vabt').onclick=function(){
 document.getElementById('vanx').onclick=function(){document.getElementById('vanr').classList.remove('open');};
 
 // ── Filter chips ──
-var CATS=['all','church','mosque','monument','ruins','museum','castle','port','attraction'];
+
+var FILTER_GROUPS = {
+  all:     null,
+  mosque:  ['mosque'],
+  church:  ['church','synagogue','temple'],
+  ruins:   ['ruins','amphitheatre','monument','attraction','viewpoint'],
+  castle:  ['castle','palace','lighthouse','tower'],
+  pyramid: ['pyramid'],
+  museum:  ['museum'],
+  hotel:   ['hotel'],
+  park:    ['park','beach','peak'],
+  port:    ['port'],
+};
+function applyFilter(chip){
+  currentFilter=chip;
+  var grp=FILTER_GROUPS[chip];
+  clusters.clearLayers();
+  allMarkers.forEach(function(m){
+    if(!grp||grp.indexOf(m.type)>-1) clusters.addLayer(m.marker);
+  });
+  document.querySelectorAll('.vca').forEach(function(b){b.classList.remove('on');});
+  document.querySelector('[data-cat="'+chip+'"]').classList.add('on');
+  return !grp?allMarkers.length:allMarkers.filter(function(m){return grp.indexOf(m.type)>-1;}).length;
+}
+var CATS=['all','mosque','church','ruins','castle','pyramid','museum','hotel','park','port'];
 var cc=document.getElementById('vcat');
 CATS.forEach(function(cat){
   var b=document.createElement('button');
   b.className='vca'+(cat==='all'?' on':'');
   b.setAttribute('data-cat',cat);
   b.textContent=TL[cat]||cat;
-  b.onclick=function(){applyFilter(cat);};
+  b.onclick=function(){var cnt=applyFilter(cat);toast(TL[cat]+' : '+cnt+' sites');};
   cc.appendChild(b);
 });
 
