@@ -144,22 +144,15 @@
     .vmk:hover { transform:scale(1.15); }
     .mosque-mk       { border-color:#1a7a5e; }
     .church-mk       { border-color:#C8963E; }
-    .synagogue-mk    { border-color:#6a5acd; }
     .pyramid-mk      { border-color:#e8a020; background:#fffbf0; }
     .ruins-mk        { border-color:#9b7653; }
-    .amphitheatre-mk { border-color:#b05050; }
     .castle-mk       { border-color:#607080; }
-    .palace-mk       { border-color:#9b5a9b; }
-    .lighthouse-mk   { border-color:#ff9800; }
     .monument-mk     { border-color:#8a6aaa; }
     .museum-mk       { border-color:#c06060; }
     .tower-mk        { border-color:#37474f; }
     .hotel-mk        { border-color:#2196F3; }
     .park-mk         { border-color:#4caf50; }
-    .beach-mk        { border-color:#00bcd4; }
-    .peak-mk         { border-color:#78909c; }
     .port-mk         { border-color:#0077b6; }
-    .attraction-mk   { border-color:#ff5722; }
 
     /* Leaflet cluster override */
     .marker-cluster-small  { background:#C8963E44; }
@@ -215,60 +208,78 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
 <script>
-// ── Resize ──
-function setSize(){
-  var h=window.innerHeight, voy=document.getElementById('voy'), vm=document.getElementById('voy-map');
-  voy.style.height=h+'px'; vm.style.height=(h-54)+'px';
-  if(window._leafMap) window._leafMap.invalidateSize();
-}
-setSize();
-window.addEventListener('resize',setSize);
-window.addEventListener('orientationchange',function(){setTimeout(setSize,300);});
+/* ═══════════════════════════════════════════════════
+   VOYASI · Carte Latine
+   - Stage 1 zoom≥7 : monuments célèbres (wikidata)
+   - Stage 2 zoom≥11: toutes les églises locales
+═══════════════════════════════════════════════════ */
 
-// ── Icons & labels ──
-var IC = {
-  all:'🗺', mosque:'🕌', church:'⛪', synagogue:'🕍', temple:'🛕',
-  pyramid:'🔺', amphitheatre:'🏟', castle:'🏰', palace:'🏯', ruins:'🏺',
-  lighthouse:'🗼', monument:'🗿', museum:'🏛', tower:'🏙', hotel:'🏨',
-  park:'🌿', beach:'🏖', peak:'⛰', port:'⚓', attraction:'📍',
-  viewpoint:'🔭', def:'📌'
+// ── Resize ───────────────────────────────────────
+function resize(){
+  var h=window.innerHeight;
+  document.getElementById('voy').style.height=h+'px';
+  document.getElementById('voy-map').style.height=(h-54)+'px';
+  if(window._map) window._map.invalidateSize();
+}
+resize();
+window.addEventListener('resize',resize);
+window.addEventListener('orientationchange',function(){setTimeout(resize,300);});
+
+// ── Icons ────────────────────────────────────────
+var IC={
+  mosque:'🕌', church:'⛪', synagogue:'🕍', temple:'🛕',
+  pyramid:'🔺', amphitheatre:'🏟', castle:'🏰', palace:'🏯',
+  ruins:'🏺', lighthouse:'🗼', monument:'🗿', museum:'🏛',
+  tower:'🏙', hotel:'🏨', park:'🌿', beach:'🏖',
+  peak:'⛰', port:'⚓', attraction:'📍', def:'📌'
+};
+var LABEL={
+  mosque:'Mosquée', church:'Église', synagogue:'Synagogue', temple:'Temple',
+  pyramid:'Pyramide', amphitheatre:'Amphithéâtre', castle:'Château / Forteresse',
+  palace:'Palais', ruins:'Site archéologique', lighthouse:'Phare',
+  monument:'Monument', museum:'Musée', tower:'Tour / Gratte-ciel',
+  hotel:'Hôtel', park:'Parc naturel', beach:'Plage',
+  peak:'Sommet', port:'Port / Môle', attraction:'Attraction touristique',
+  def:'Site'
+};
+var CHIPS_TL={
+  all:'Tous', mosque:'Mosquées 🕌', church:'Églises ⛪',
+  ruins:'Ruines 🏺', castle:'Châteaux 🏰', pyramid:'Pyramides 🔺',
+  museum:'Musées 🏛', hotel:'Hôtels 🏨', park:'Nature 🌿', port:'Ports ⚓'
+};
+var CSS_CLS={
+  mosque:'mosque-mk', church:'church-mk', synagogue:'church-mk',
+  temple:'church-mk', pyramid:'pyramid-mk', amphitheatre:'ruins-mk',
+  castle:'castle-mk', palace:'castle-mk', ruins:'ruins-mk',
+  lighthouse:'castle-mk', monument:'monument-mk', museum:'museum-mk',
+  tower:'tower-mk', hotel:'hotel-mk', park:'park-mk', beach:'park-mk',
+  peak:'park-mk', port:'port-mk', attraction:'monument-mk', def:'monument-mk'
+};
+var FILTER={
+  all:null,
+  mosque:['mosque'],
+  church:['church','synagogue','temple'],
+  ruins:['ruins','amphitheatre','monument','attraction'],
+  castle:['castle','palace','lighthouse','tower'],
+  pyramid:['pyramid'],
+  museum:['museum'],
+  hotel:['hotel'],
+  park:['park','beach','peak'],
+  port:['port']
 };
 
-// ── Map setup ──
-var map=L.map('voy-map',{zoomControl:true}).setView([33.8869,9.5375],6);
-window._leafMap=map;
-// Tile: Voyasi Worker → MapTiler (labels latins/français)
-L.tileLayer('https://voyasi.slimabbar.workers.dev/api/maptiles/{z}/{x}/{y}.png',{
-  attribution:'© MapTiler © OSM', maxZoom:20
-}).addTo(map);
-
-var clusters=L.markerClusterGroup({chunkedLoading:true,maxClusterRadius:50,
-  iconCreateFunction:function(c){
-    var n=c.getChildCount();
-    var sz=n<10?'small':n<50?'medium':'large';
-    return L.divIcon({html:'<div>'+n+'</div>',className:'marker-cluster marker-cluster-'+sz,iconSize:[40,40]});
-  }
-});
-map.addLayer(clusters);
-
-var allMarkers=[], loadedBoxes=new Map(), loadedIds=new Set();
-var isLoading=false, total=0, ltimer;
-var currentFilter='all';
-
-function updateCount(){ document.getElementById('voy-cnt').textContent=total+' sites'; }
-
-// ── Name resolution — French priority ──
+// ── Helpers ──────────────────────────────────────
+function gi(t){return IC[t]||IC.def;}
+function gl(t){return LABEL[t]||t;}
 function bestName(t){
-  var ks=['name:fr','name:en','name','name:ar','official_name','alt_name'];
-  for(var i=0;i<ks.length;i++) if(t[ks[i]]&&t[ks[i]].trim()) return t[ks[i]].trim();
+  var k=['name:fr','name:en','name','name:ar','official_name'];
+  for(var i=0;i<k.length;i++){if(t[k[i]]&&t[k[i]].trim())return t[k[i]].trim();}
   return null;
 }
-
-// ── Type detection ──
 function getType(t){
-  if(t.harbour==='yes'||t['seamark:type']==='harbour'||t.landuse==='harbour'||t.amenity==='ferry_terminal'||t.man_made==='pier') return 'port';
+  if(t.harbour==='yes'||t['seamark:type']==='harbour'||t.landuse==='harbour'||t.amenity==='ferry_terminal') return 'port';
   if(t.tourism==='hotel') return 'hotel';
-  if(t.boundary==='national_park'||t.leisure==='nature_reserve'||t.leisure==='park') return 'park';
+  if(t.boundary==='national_park'||t.leisure==='nature_reserve') return 'park';
   if(t.natural==='beach') return 'beach';
   if(t.natural==='peak'||t.natural==='volcano') return 'peak';
   if(t.amenity==='place_of_worship'){
@@ -277,135 +288,176 @@ function getType(t){
     if(t.religion==='jewish')    return 'synagogue';
     return 'temple';
   }
-  if(t.historic==='pyramid')                                            return 'pyramid';
-  if(t.historic==='amphitheatre'||t.historic==='amphitheater')          return 'amphitheatre';
-  if(t.historic==='castle'||t.historic==='fort'||t.historic==='fortress'||t.historic==='city_gate') return 'castle';
-  if(t.historic==='palace')                                             return 'palace';
-  if(t.historic==='archaeological_site'||t.historic==='ruins')          return 'ruins';
-  if(t.historic==='lighthouse'||t.man_made==='lighthouse')              return 'lighthouse';
-  if(t.historic==='monument'||t.historic==='memorial'||t.historic==='statue') return 'monument';
-  if(t.historic==='temple')                                             return 'temple';
-  if(t.tourism==='museum'||t.amenity==='museum')                        return 'museum';
-  if(t.man_made==='tower'||t.building==='skyscraper'||t.building==='tower') return 'tower';
-  if(t.tourism==='viewpoint')                                           return 'viewpoint';
-  if(t.historic)                                                        return 'ruins';
-  if(t.tourism==='attraction')                                          return 'attraction';
+  if(t.historic==='pyramid')                              return 'pyramid';
+  if(t.historic==='amphitheatre'||t.historic==='amphitheater') return 'amphitheatre';
+  if(t.historic==='castle'||t.historic==='fort'||t.historic==='fortress') return 'castle';
+  if(t.historic==='palace')                              return 'palace';
+  if(t.historic==='archaeological_site'||t.historic==='ruins') return 'ruins';
+  if(t.historic==='lighthouse'||t.man_made==='lighthouse') return 'lighthouse';
+  if(t.historic==='monument'||t.historic==='memorial')   return 'monument';
+  if(t.tourism==='museum'||t.amenity==='museum')         return 'museum';
+  if(t.man_made==='tower'||t.building==='skyscraper')    return 'tower';
+  if(t.historic)                                         return 'ruins';
+  if(t.tourism==='attraction')                           return 'attraction';
   return 'def';
 }
 
-// ── Floating card ──
-var curSite=null, vcard=document.getElementById('vcard');
-function clamp(px,py){
+// ── Map ──────────────────────────────────────────
+var map=L.map('voy-map',{zoomControl:true}).setView([33.9,9.5],6);
+window._map=map;
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
+  attribution:'© OpenStreetMap © CARTO',subdomains:'abcd',maxZoom:20
+}).addTo(map);
+
+var CL=L.markerClusterGroup({chunkedLoading:true,maxClusterRadius:50,
+  iconCreateFunction:function(c){
+    var n=c.getChildCount(),s=n<10?'small':n<50?'medium':'large';
+    return L.divIcon({html:'<div>'+n+'</div>',className:'marker-cluster marker-cluster-'+s,iconSize:[40,40]});
+  }
+});
+map.addLayer(CL);
+
+// ── State ────────────────────────────────────────
+var ALL=[], IDS=new Set(), total=0, ltimer;
+var FB=new Map(), LB=new Map();
+var busy1=false, busy2=false;
+var curFilter='all', curSite=null;
+
+function updateCnt(){document.getElementById('voy-cnt').textContent=total+' sites';}
+
+// ── Markers ──────────────────────────────────────
+function addMarker(lat,lon,name,type,wu,wdId){
+  var cls=CSS_CLS[type]||'monument-mk';
+  var ico=L.divIcon({
+    html:'<div class="vmk '+cls+'">'+gi(type)+'</div>',
+    iconSize:[36,36],className:'',iconAnchor:[18,18]
+  });
+  var m=L.marker([lat,lon],{icon:ico});
+  var site={lat:lat,lon:lon,type:type,name:name,wu:wu,wdId:wdId};
+  m.on('click',function(e){L.DomEvent.stopPropagation(e);showCard(site);});
+  ALL.push({m:m,type:type,site:site});
+  var grp=FILTER[curFilter];
+  if(!grp||grp.indexOf(type)>-1) CL.addLayer(m);
+  total++; updateCnt();
+}
+
+// ── Card ─────────────────────────────────────────
+var vcard=document.getElementById('vcard');
+function posCard(ll){
+  var pt=map.latLngToContainerPoint(ll);
   var mw=document.getElementById('voy-map').clientWidth;
   var mh=document.getElementById('voy-map').clientHeight;
-  return [Math.max(128,Math.min(px,mw-128)),Math.max(180,Math.min(py,mh-10))];
+  var x=Math.max(124,Math.min(pt.x,mw-124));
+  var y=Math.max(160,Math.min(pt.y,mh-10));
+  vcard.style.left=x+'px'; vcard.style.top=y+'px';
 }
-function posCard(ll){
-  var pt=map.latLngToContainerPoint(ll),p=clamp(pt.x,pt.y);
-  vcard.style.left=p[0]+'px'; vcard.style.top=p[1]+'px';
-}
-
-// ── Fetch with timeout ──
-function fetchT(url,ms){
-  return new Promise(function(res,rej){
-    var ctrl=new AbortController(), t=setTimeout(function(){ctrl.abort();rej(new Error('timeout'));},ms);
-    fetch(url,{signal:ctrl.signal}).then(function(r){clearTimeout(t);res(r);}).catch(function(e){clearTimeout(t);rej(e);});
+function showCard(site){
+  curSite=site;
+  document.getElementById('vctype').textContent=gl(site.type).toUpperCase();
+  document.getElementById('vcn').textContent=gi(site.type)+' '+site.name;
+  document.getElementById('vci').style.display='none';
+  vcard.classList.add('open');
+  posCard([site.lat,site.lon]);
+  fetchThumb(site).then(function(src){
+    if(!src) return;
+    var img=document.getElementById('vci');
+    img.onload=function(){img.style.display='block';posCard([site.lat,site.lon]);};
+    img.onerror=function(){img.style.display='none';};
+    img.src=src;
   });
 }
+map.on('move zoom',function(){if(curSite&&vcard.classList.contains('open'))posCard([curSite.lat,curSite.lon]);});
+map.on('click',function(){vcard.classList.remove('open');});
+document.getElementById('vcx').onclick=function(e){e.stopPropagation();vcard.classList.remove('open');};
+document.getElementById('vbw').onclick=function(){
+  if(curSite&&curSite.wu) window.open(curSite.wu);
+  else if(curSite) window.open('https://fr.wikipedia.org/wiki/'+encodeURIComponent(curSite.name));
+};
+document.getElementById('vbm').onclick=function(){if(curSite)window.open('https://www.google.com/maps?q='+curSite.lat+','+curSite.lon);};
+document.getElementById('vbe').onclick=function(){if(curSite)window.open('https://open-meteo.com/fr/?lat='+curSite.lat+'&lon='+curSite.lon);};
 
-// ── Wikipedia thumbnail ──
-async function getThumb(site){
+// ── Thumbnail ────────────────────────────────────
+async function fetchThumb(site){
   if(site.wu){
     try{
-      var parts=site.wu.split('/wiki/');
-      if(parts.length===2){
-        var lang=site.wu.indexOf('fr.wikipedia')>-1?'fr':site.wu.indexOf('ar.wikipedia')>-1?'ar':'en';
-        var title=decodeURIComponent(parts[1]);
-        var r=await fetchT('https://'+lang+'.wikipedia.org/api/rest_v1/page/summary/'+encodeURIComponent(title),5000);
-        if(r.ok){var d=await r.json();if(d.thumbnail&&d.thumbnail.source)return d.thumbnail.source;}
-      }
-    }catch(e){}
-  }
-  if(site.wdId){
-    try{
-      var r2=await fetchT('https://www.wikidata.org/wiki/Special:EntityData/'+site.wdId+'.json',6000);
-      if(r2.ok){
-        var wd=await r2.json(),ent=wd.entities[site.wdId],sl=ent&&ent.sitelinks;
-        var langs=['frwiki','enwiki','arwiki','eswiki','dewiki'];
-        for(var i=0;i<langs.length;i++){
-          if(sl&&sl[langs[i]]){
-            var lc=langs[i].replace('wiki',''),t2=sl[langs[i]].title;
-            try{
-              var r3=await fetchT('https://'+lc+'.wikipedia.org/api/rest_v1/page/summary/'+encodeURIComponent(t2),5000);
-              if(r3.ok){var d3=await r3.json();if(d3.thumbnail&&d3.thumbnail.source)return d3.thumbnail.source;}
-            }catch(e){}
-          }
-        }
+      var p=site.wu.split('/wiki/');
+      if(p.length===2){
+        var lang=site.wu.match(/([a-z]+)\.wikipedia/);
+        lang=lang?lang[1]:'fr';
+        var r=await fetch('https://'+lang+'.wikipedia.org/api/rest_v1/page/summary/'+encodeURIComponent(decodeURIComponent(p[1])));
+        if(r.ok){var d=await r.json();if(d.thumbnail)return d.thumbnail.source;}
       }
     }catch(e){}
   }
   return null;
 }
 
-async function showCard(site){
-  curSite=site;
-  document.getElementById('vctype').textContent=(TYPELABEL[site.type]||site.type).toUpperCase();
-  document.getElementById('vcn').textContent=gi(site.type)+' '+site.name;
-  var img=document.getElementById('vci');
-  img.style.display='none';
-  vcard.classList.add('open');
-  posCard([site.lat,site.lon]);
-  getThumb(site).then(function(src){
-    if(src){img.onload=function(){img.style.display='block';posCard([site.lat,site.lon]);};img.onerror=function(){img.style.display='none';};img.src=src;}
-  });
+// ── Filter chips ─────────────────────────────────
+var cc=document.getElementById('vcat');
+['all','mosque','church','ruins','castle','pyramid','museum','hotel','park','port'].forEach(function(cat){
+  var b=document.createElement('button');
+  b.className='vca'+(cat==='all'?' on':'');
+  b.setAttribute('data-cat',cat);
+  b.textContent=CHIPS_TL[cat]||cat;
+  b.onclick=function(){
+    curFilter=cat;
+    var grp=FILTER[cat];
+    CL.clearLayers();
+    ALL.forEach(function(o){if(!grp||grp.indexOf(o.type)>-1) CL.addLayer(o.m);});
+    document.querySelectorAll('.vca').forEach(function(x){x.classList.remove('on');});
+    b.classList.add('on');
+    var cnt=!grp?ALL.length:ALL.filter(function(o){return grp.indexOf(o.type)>-1;}).length;
+    toast(CHIPS_TL[cat]+' : '+cnt+' sites');
+  };
+  cc.appendChild(b);
+});
+
+// ── Bar ──────────────────────────────────────────
+function showBar(){var b=document.getElementById('vbar');b.style.display='block';b.style.transform='scaleX(.6)';}
+function hideBar(){var b=document.getElementById('vbar');b.style.transform='scaleX(1)';setTimeout(function(){b.style.display='none';b.style.transform='scaleX(0)';},400);}
+
+// ── Overpass ─────────────────────────────────────
+async function overpass(q){
+  var ctrl=new AbortController(), tid=setTimeout(function(){ctrl.abort();},30000);
+  try{
+    var r=await fetch('https://overpass-api.de/api/interpreter',
+      {method:'POST',body:'data='+encodeURIComponent(q),signal:ctrl.signal});
+    clearTimeout(tid);
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    var data=await r.json(), n=0;
+    for(var i=0;i<data.elements.length;i++){
+      var el=data.elements[i], oid=el.type+el.id;
+      if(IDS.has(oid)) continue; IDS.add(oid);
+      var lat=el.lat||(el.center&&el.center.lat);
+      var lon=el.lon||(el.center&&el.center.lon);
+      if(!lat||!lon) continue;
+      var t=el.tags||{}, name=bestName(t);
+      if(!name) continue;
+      var type=getType(t), wu='';
+      if(t.wikipedia){
+        var wp=t.wikipedia.split(':');
+        wu=wp.length===2?'https://'+wp[0]+'.wikipedia.org/wiki/'+wp[1].replace(/ /g,'_')
+                        :'https://fr.wikipedia.org/wiki/'+t.wikipedia.replace(/ /g,'_');
+      }
+      addMarker(lat,lon,name,type,wu,t.wikidata||null);
+      n++;
+    }
+    return n;
+  } finally { clearTimeout(tid); }
 }
-map.on('move zoom',function(){if(curSite&&vcard.classList.contains('open'))posCard([curSite.lat,curSite.lon]);});
-map.on('click',function(){vcard.classList.remove('open');});
-document.getElementById('vcx').onclick=function(e){e.stopPropagation();vcard.classList.remove('open');};
-document.getElementById('vbw').onclick=function(){if(curSite)window.open(curSite.wu||'https://fr.wikipedia.org/wiki/'+encodeURIComponent(curSite.name));};
-document.getElementById('vbm').onclick=function(){if(curSite)window.open('https://www.google.com/maps?q='+curSite.lat+','+curSite.lon);};
-document.getElementById('vbe').onclick=function(){if(curSite)window.open('https://open-meteo.com/fr/?lat='+curSite.lat+'&lon='+curSite.lon);};
 
-// ── Add marker ──
-function addMarker(lat,lon,name,type,wu,wdId){
-  var css=TYPECSS[type]||'';
-  var icon=L.divIcon({html:'<div class="vmk '+css+'">'+gi(type)+'</div>',iconSize:[36,36],className:'',iconAnchor:[18,18]});
-  var m=L.marker([lat,lon],{icon:icon});
-  var site={lat:lat,lon:lon,type:type,name:name,wu:wu,wdId:wdId};
-  m.on('click',function(e){L.DomEvent.stopPropagation(e);showCard(site);});
-  allMarkers.push({marker:m,type:type,site:site});
-  if(currentFilter==='all'||currentFilter===type) clusters.addLayer(m);
-  total++;
-  updateCount();
-}
-
-// ── Category filter ──
-function applyFilter(type){
-  currentFilter=type;
-  clusters.clearLayers();
-  allMarkers.forEach(function(m){
-    if(type==='all'||m.type===type) clusters.addLayer(m.marker);
-  });
-  document.querySelectorAll('.vca').forEach(function(b){b.classList.remove('on');});
-  document.querySelector('[data-cat="'+type+'"]').classList.add('on');
-  var visible=type==='all'?allMarkers.length:allMarkers.filter(function(m){return m.type===type;}).length;
-  toast(TL[type]+' : '+visible+' sites');
-}
-
-// ── TWO-STAGE LOADING ──
-// Stage 1 zoom 7+: monuments célèbres (wikidata)
-// Stage 2 zoom 11+: TOUTES les églises locales
-var loadingFamous=false, loadingLocal=false;
-var famousBoxes=new Map(), localBoxes=new Map();
-
+// ── Stage 1: Famous (zoom≥7) ─────────────────────
 async function loadFamous(){
-  if(loadingFamous||map.getZoom()<7) return;
-  var b=map.getBounds(), key='F_'+map.getZoom()+'_'+b.getCenter().lat.toFixed(1)+'_'+b.getCenter().lng.toFixed(1);
-  if(famousBoxes.has(key)) return;
-  loadingFamous=true; famousBoxes.set(key,true); showBar();
+  if(busy1) return;
+  var z=map.getZoom();
+  if(z<7){ toast('Zoomez au niveau 7+ pour charger les sites'); return; }
+  var b=map.getBounds();
+  var key=Math.floor(z)+'_'+b.getCenter().lat.toFixed(1)+'_'+b.getCenter().lng.toFixed(1);
+  if(FB.has(key)) return;
+  busy1=true; FB.set(key,true); showBar();
   try{
     var s=b.getSouth(),w=b.getWest(),n=b.getNorth(),e=b.getEast(),bb=s+','+w+','+n+','+e;
-    var q='[out:json][timeout:35][maxsize:6000000];('
+    var q='[out:json][timeout:30][maxsize:5000000];('
       +'node["historic"]["wikidata"]["name"]('+bb+');'
       +'way["historic"]["wikidata"]["name"]('+bb+');'
       +'relation["historic"]["wikidata"]["name"]('+bb+');'
@@ -416,6 +468,7 @@ async function loadFamous(){
       +'way["tourism"="attraction"]["wikidata"]["name"]('+bb+');'
       +'node["tourism"="museum"]["wikidata"]["name"]('+bb+');'
       +'way["tourism"="museum"]["wikidata"]["name"]('+bb+');'
+      /* grandes MOSQUEES seulement (wikidata) — carte latine */
       +'node["amenity"="place_of_worship"]["religion"="muslim"]["wikidata"]('+bb+');'
       +'way["amenity"="place_of_worship"]["religion"="muslim"]["wikidata"]('+bb+');'
       +'node["tourism"="hotel"]["stars"~"^[45]"]["name"]('+bb+');'
@@ -433,148 +486,102 @@ async function loadFamous(){
       +'node["seamark:type"="harbour"]["name"]('+bb+');'
       +'node["amenity"="ferry_terminal"]["name"]('+bb+');'
       +'way["landuse"="harbour"]["name"]('+bb+');'
-      +'node["man_made"="pier"]["name"]('+bb+');'
       +');out center 700;';
-    var added=await runQuery(q,'fr');
-    toast('+'+total+' sites chargés');
-  }catch(err){ famousBoxes.delete(key); if(err.name!=='AbortError') toast('Erreur: '+err.message,3000); }
-  finally{ loadingFamous=false; hideBar(); }
+    var added=await overpass(q);
+    toast('+'+added+' sites (total: '+total+')');
+  } catch(err){
+    FB.delete(key);
+    if(err.name!=='AbortError') toast('Erreur: '+err.message,3000);
+  } finally { busy1=false; hideBar(); }
 }
 
+// ── Stage 2: All churches (zoom≥11) ──────────────
 async function loadLocal(){
-  if(loadingLocal||map.getZoom()<11) return;
-  var b=map.getBounds(), key='L_'+map.getZoom()+'_'+b.getCenter().lat.toFixed(2)+'_'+b.getCenter().lng.toFixed(2);
-  if(localBoxes.has(key)) return;
-  loadingLocal=true; localBoxes.set(key,true); showBar();
+  if(busy2) return;
+  if(map.getZoom()<11) return;
+  var b=map.getBounds();
+  var key='L_'+Math.floor(map.getZoom())+'_'+b.getCenter().lat.toFixed(2)+'_'+b.getCenter().lng.toFixed(2);
+  if(LB.has(key)) return;
+  busy2=true; LB.set(key,true); showBar();
   try{
     var s=b.getSouth(),w=b.getWest(),n=b.getNorth(),e=b.getEast(),bb=s+','+w+','+n+','+e;
-    var q='[out:json][timeout:25][maxsize:4000000];('
+    var q='[out:json][timeout:25][maxsize:3000000];('
       +'node["amenity"="place_of_worship"]["religion"="christian"]["name"]('+bb+');'
       +'way["amenity"="place_of_worship"]["religion"="christian"]["name"]('+bb+');'
       +');out center 1000;';
-    await runQuery(q,'fr');
-  }catch(e){ localBoxes.delete(key); }
-  finally{ loadingLocal=false; hideBar(); }
+    await overpass(q);
+  } catch(e){ LB.delete(key); }
+  finally { busy2=false; hideBar(); }
 }
 
-async function runQuery(q,lang){
-  var ctrl=new AbortController(),t2=setTimeout(function(){ctrl.abort();},30000);
-  var resp=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:'data='+encodeURIComponent(q),signal:ctrl.signal});
-  clearTimeout(t2);
-  if(!resp.ok) throw new Error('HTTP '+resp.status);
-  var data=await resp.json(), added=0;
-  for(var i=0;i<data.elements.length;i++){
-    var el=data.elements[i],oid=el.type+'-'+el.id;
-    if(loadedIds.has(oid)) continue; loadedIds.add(oid);
-    var lat=el.lat||(el.center&&el.center.lat), lon=el.lon||(el.center&&el.center.lon);
-    if(!lat||!lon) continue;
-    var tags=el.tags||{}, name=bestName(tags);
-    if(!name) continue;
-    var type=getType(tags), wu='';
-    if(tags.wikipedia){
-      var wp=tags.wikipedia.split(':');
-      wu=wp.length===2?'https://'+wp[0]+'.wikipedia.org/wiki/'+wp[1].replace(/ /g,'_')
-                      :'https://'+(lang||'fr')+'.wikipedia.org/wiki/'+tags.wikipedia.replace(/ /g,'_');
-    }
-    addMarker(lat,lon,name,type,wu,tags.wikidata||null);
-    added++;
-  }
-  return added;
+// ── Trigger ──────────────────────────────────────
+function triggerLoad(){
+  clearTimeout(ltimer);
+  ltimer=setTimeout(function(){
+    loadFamous();
+    if(map.getZoom()>=11) loadLocal();
+  },600);
 }
-
-function showBar(){var b=document.getElementById('vbar');b.style.display='block';b.style.transform='scaleX(.6)';}
-function hideBar(){var b=document.getElementById('vbar');b.style.transform='scaleX(1)';setTimeout(function(){b.style.display='none';b.style.transform='scaleX(0)';},300);}
-function triggerLoad(){clearTimeout(ltimer);ltimer=setTimeout(function(){loadFamous();if(map.getZoom()>=11)loadLocal();},600);}
 map.on('moveend zoomend',triggerLoad);
-setTimeout(function(){loadFamous();},700);setTimeout(loadArea,700);
+setTimeout(function(){loadFamous();},800);
 
-// ── Search ──
-var si=document.getElementById('voy-si'), sr=document.getElementById('voy-res'), stimer;
+// ── Search ───────────────────────────────────────
+var si=document.getElementById('voy-si'), sr=document.getElementById('voy-res'), stmr;
 si.addEventListener('input',function(){
-  clearTimeout(stimer); var q=si.value.trim();
+  clearTimeout(stmr);
+  var q=si.value.trim();
   if(!q){sr.style.display='none';return;}
-  stimer=setTimeout(function(){doSearch(q);},350);
+  stmr=setTimeout(function(){
+    fetch('https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(q)+'&format=json&limit=5&accept-language=fr,en')
+    .then(function(r){return r.json();})
+    .then(function(d){
+      sr.innerHTML=d.length?d.map(function(i){
+        return '<div class="vri" onclick="goTo('+i.lat+','+i.lon+',\''+i.display_name.substring(0,55).replace(/'/g,"&#39;")+'\')">'
+          +i.display_name.substring(0,55)+'</div>';
+      }).join(''):'<div class="vri" style="color:#999">Aucun résultat</div>';
+      sr.style.display='block';
+    }).catch(function(){sr.style.display='none';});
+  },400);
 });
-async function doSearch(q){
-  try{
-    var r=await fetchT('https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(q)+'&format=json&limit=5&accept-language=fr',5000);
-    var d=await r.json();
-    sr.innerHTML=d.length?d.map(function(i){
-      return '<div class="vri" onclick="pick('+i.lat+','+i.lon+',\''+i.display_name.substring(0,55).replace(/'/g,"\\'")+'\')">'
-        +i.display_name.substring(0,60)+'</div>';
-    }).join(''):'<div class="vri" style="color:#999">Aucun résultat</div>';
-    sr.style.display='block';
-  }catch(e){sr.style.display='none';}
-}
-window.pick=function(lat,lng,name){sr.style.display='none';si.value=name;map.flyTo([lat,lng],13);};
+window.goTo=function(lat,lon,name){sr.style.display='none';si.value=name;map.flyTo([lat,lon],13);};
 document.addEventListener('click',function(e){if(!si.contains(e.target)&&!sr.contains(e.target))sr.style.display='none';});
 
-// ── Nearby ──
-function hav(a,b,c,d){var R=6371,dl=(c-a)*Math.PI/180,dg=(d-b)*Math.PI/180,x=Math.sin(dl/2)*Math.sin(dl/2)+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dg/2)*Math.sin(dg/2);return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
+// ── Nearby ───────────────────────────────────────
+function haversine(a,b,c,d){
+  var R=6371,dl=(c-a)*Math.PI/180,dg=(d-b)*Math.PI/180;
+  var x=Math.sin(dl/2)*Math.sin(dl/2)+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dg/2)*Math.sin(dg/2);
+  return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+}
 document.getElementById('vabt').onclick=function(){
   var c=map.getCenter();
-  var nearby=allMarkers.map(function(m){
-    var ll=m.marker.getLatLng();
-    return {site:m.site,d:hav(c.lat,c.lng,ll.lat,ll.lng)};
-  }).sort(function(a,b){return a.d-b.d;}).slice(0,20);
-  document.getElementById('vanl').innerHTML=nearby.map(function(item){
-    return '<div class="vani" onclick="map.flyTo(['+item.site.lat+','+item.site.lon+'],15);document.getElementById(\'vanr\').classList.remove(\'open\');">'
-      +'<span class="vani-type">'+(TYPELABEL[item.site.type]||item.site.type)+'</span>'
-      +gi(item.site.type)+' '+item.site.name
-      +'<span style="float:right;color:#C8963E;font-size:11px;font-weight:700;">'
-      +(item.d<1?Math.round(item.d*1000)+'m':item.d.toFixed(1)+'km')
-      +'</span></div>';
+  var list=ALL.map(function(o){var ll=o.m.getLatLng();return{site:o.site,d:haversine(c.lat,c.lng,ll.lat,ll.lng)};})
+    .sort(function(a,b){return a.d-b.d;}).slice(0,20);
+  document.getElementById('vanl').innerHTML=list.map(function(it){
+    return '<div class="vani" onclick="map.flyTo(['+it.site.lat+','+it.site.lon+'],15);document.getElementById(\'vanr\').classList.remove(\'open\');">'
+      +'<span class="vani-type">'+gl(it.site.type).toUpperCase()+'</span>'
+      +gi(it.site.type)+' '+it.site.name
+      +'<span style="float:right;color:#C8963E;font-size:11px;font-weight:700;">'+(it.d<1?Math.round(it.d*1000)+'m':it.d.toFixed(1)+'km')+'</span></div>';
   }).join('');
   document.getElementById('vanr').classList.add('open');
 };
 document.getElementById('vanx').onclick=function(){document.getElementById('vanr').classList.remove('open');};
 
-// ── Filter chips ──
-
-var FILTER_GROUPS = {
-  all:     null,
-  mosque:  ['mosque'],
-  church:  ['church','synagogue','temple'],
-  ruins:   ['ruins','amphitheatre','monument','attraction','viewpoint'],
-  castle:  ['castle','palace','lighthouse','tower'],
-  pyramid: ['pyramid'],
-  museum:  ['museum'],
-  hotel:   ['hotel'],
-  park:    ['park','beach','peak'],
-  port:    ['port'],
-};
-function applyFilter(chip){
-  currentFilter=chip;
-  var grp=FILTER_GROUPS[chip];
-  clusters.clearLayers();
-  allMarkers.forEach(function(m){
-    if(!grp||grp.indexOf(m.type)>-1) clusters.addLayer(m.marker);
-  });
-  document.querySelectorAll('.vca').forEach(function(b){b.classList.remove('on');});
-  document.querySelector('[data-cat="'+chip+'"]').classList.add('on');
-  return !grp?allMarkers.length:allMarkers.filter(function(m){return grp.indexOf(m.type)>-1;}).length;
-}
-var CATS=['all','mosque','church','ruins','castle','pyramid','museum','hotel','park','port'];
-var cc=document.getElementById('vcat');
-CATS.forEach(function(cat){
-  var b=document.createElement('button');
-  b.className='vca'+(cat==='all'?' on':'');
-  b.setAttribute('data-cat',cat);
-  b.textContent=TL[cat]||cat;
-  b.onclick=function(){var cnt=applyFilter(cat);toast(TL[cat]+' : '+cnt+' sites');};
-  cc.appendChild(b);
-});
-
-// ── GPS ──
+// ── GPS ──────────────────────────────────────────
 document.getElementById('voy-gps').onclick=function(){
-  if(navigator.geolocation) navigator.geolocation.getCurrentPosition(
+  navigator.geolocation&&navigator.geolocation.getCurrentPosition(
     function(p){map.flyTo([p.coords.latitude,p.coords.longitude],13);},
     function(){alert('Géolocalisation refusée');}
   );
 };
 
-function toast(msg,d){var t=document.getElementById('vtst');t.textContent=msg;t.style.opacity='1';setTimeout(function(){t.style.opacity='0';},d||2500);}
-setTimeout(function(){toast('Zoomez sur une région (niv. 9+) pour charger',3500);},900);
+// ── Toast ────────────────────────────────────────
+function toast(msg,dur){
+  var t=document.getElementById('vtst');
+  t.textContent=msg; t.style.opacity='1';
+  clearTimeout(t._tid);
+  t._tid=setTimeout(function(){t.style.opacity='0';},dur||2500);
+}
+toast('Bienvenue sur Voyasi · Zoomez niveau 7+ pour charger',4000);
 </script>
 </body>
 </html>
