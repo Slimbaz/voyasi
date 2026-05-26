@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+  <title>Voyasi · Carte Latine · Monuments & Sites</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'DM Sans','Segoe UI',sans-serif; }
+    #voy { position:relative; width:100%; overflow:hidden; }
+
+    /* ── Header ── */
+    #voy-hdr {
+      position:absolute; top:0; left:0; right:0; height:54px;
+      background:rgba(255,255,255,.97); backdrop-filter:blur(12px);
+      border-bottom:1px solid #e8e0d4;
+      display:flex; align-items:center; gap:8px; padding:0 12px;
+      z-index:100;
+    }
+    #voy-logo {
+      font-weight:800; font-size:1rem; white-space:nowrap; flex-shrink:0;
+      color:#1a1208; letter-spacing:-.3px;
+    }
+    #voy-logo span { color:#C8963E; }
+    #voy-badge {
+      flex-shrink:0; font-size:10px; font-weight:700; letter-spacing:1px;
+      background:#C8963E22; color:#C8963E; border:1px solid #C8963E55;
+      border-radius:20px; padding:2px 8px; text-transform:uppercase;
+    }
+    #voy-sw   { flex:1; min-width:0; position:relative; }
+    #voy-si   { width:100%; padding:7px 14px; border-radius:40px; border:1.5px solid #e0d8cc; font-size:13px; outline:none; font-family:inherit; background:#faf9f7; }
+    #voy-si:focus { border-color:#C8963E; background:#fff; }
+    #voy-res  {
+      position:absolute; top:38px; left:0; right:0; background:#fff;
+      border-radius:12px; box-shadow:0 4px 18px rgba(0,0,0,.15);
+      max-height:200px; overflow-y:auto; display:none; z-index:200;
+    }
+    .vri { padding:9px 14px; cursor:pointer; border-bottom:1px solid #f5f0e8; font-size:13px; }
+    .vri:hover { background:#fdf8f0; }
+    #voy-gps  {
+      flex-shrink:0; background:#fff; border:1.5px solid #e0d8cc; border-radius:40px;
+      padding:5px 10px; cursor:pointer; font-size:12px; color:#666; font-family:inherit;
+    }
+    #voy-gps:hover { border-color:#C8963E; color:#C8963E; }
+    #voy-cnt  {
+      flex-shrink:0; background:#C8963E; color:#fff; border-radius:40px;
+      padding:4px 10px; font-size:12px; font-weight:700; white-space:nowrap; min-width:64px; text-align:center;
+    }
+
+    #voy-map  { position:absolute; top:54px; left:0; right:0; }
+
+    /* ── Floating card ── */
+    #vcard {
+      position:absolute; z-index:800; background:#fff; border-radius:16px;
+      box-shadow:0 8px 28px rgba(0,0,0,.22); width:248px; display:none;
+      transform:translate(-50%,calc(-100% - 16px));
+    }
+    #vcard.open { display:block; }
+    #vci { width:100%; height:130px; object-fit:cover; border-radius:16px 16px 0 0; display:none; }
+    .vcb { padding:12px 14px; }
+    #vctype { font-size:10px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:#C8963E; margin-bottom:4px; }
+    #vcn { font-size:13px; font-weight:700; margin-bottom:10px; line-height:1.35; color:#1a1208; }
+    .vbt { display:flex; gap:5px; }
+    .vbt button { flex:1; padding:7px 4px; border-radius:20px; border:none; font-size:11px; font-weight:700; cursor:pointer; font-family:inherit; transition:.15s; }
+    .bw { background:#C8963E; color:#fff; }
+    .bw:hover { background:#b57d2e; }
+    .bm { background:#f0ede8; color:#555; }
+    .bm:hover { background:#e5e0d8; }
+    .be { background:#e8f0fd; color:#1565c0; }
+    .be:hover { background:#d5e6fb; }
+    #vcx {
+      position:absolute; top:7px; right:8px; background:rgba(0,0,0,.45); color:#fff;
+      border:none; border-radius:50%; width:22px; height:22px; font-size:11px;
+      cursor:pointer; display:flex; align-items:center; justify-content:center; z-index:1;
+    }
+    #vcard::after {
+      content:''; position:absolute; bottom:-10px; left:50%; transform:translateX(-50%);
+      border:10px solid transparent; border-top-color:#fff; border-bottom:none;
+    }
+
+    /* ── Category filter chips ── */
+    #vcat {
+      position:absolute; bottom:12px; left:50%; transform:translateX(-50%);
+      z-index:100; display:flex; gap:5px;
+      background:rgba(255,255,255,.95); backdrop-filter:blur(10px);
+      padding:6px 12px; border-radius:50px; border:1px solid #e8e0d4;
+      box-shadow:0 2px 12px rgba(0,0,0,.1);
+      max-width:calc(100vw - 16px); overflow-x:auto; scrollbar-width:none;
+    }
+    #vcat::-webkit-scrollbar { display:none; }
+    .vca {
+      border:1.5px solid transparent; background:transparent;
+      padding:5px 11px; border-radius:40px; font-weight:700; cursor:pointer;
+      font-size:11px; white-space:nowrap; color:#888; font-family:inherit; transition:.15s;
+    }
+    .vca:hover { color:#C8963E; border-color:#C8963E44; background:#C8963E0A; }
+    .vca.on { background:#C8963E; color:#fff; border-color:#C8963E; }
+
+    /* ── Nearby panel ── */
+    #vabt {
+      position:absolute; top:62px; right:10px; z-index:100;
+      background:#C8963E; color:#fff; border:none; border-radius:40px;
+      padding:7px 14px; font-weight:700; cursor:pointer; font-size:12px; font-family:inherit;
+      box-shadow:0 2px 8px rgba(200,150,62,.4);
+    }
+    #vabt:hover { background:#b57d2e; }
+    #vanr {
+      position:absolute; top:54px; right:0; bottom:0; width:280px;
+      background:#fff; transform:translateX(100%); transition:.22s;
+      z-index:150; border-left:1px solid #e8e0d4; overflow-y:auto;
+    }
+    #vanr.open { transform:translateX(0); }
+    .vanh { padding:14px 16px; border-bottom:1px solid #f0ece4; display:flex; justify-content:space-between; align-items:center; font-weight:700; font-size:14px; }
+    #vanl { padding:8px; }
+    .vani { padding:10px 12px; border-radius:10px; margin-bottom:5px; background:#faf9f7; cursor:pointer; font-size:13px; line-height:1.4; }
+    .vani:hover { background:#fdf5e8; }
+    .vani-type { font-size:10px; color:#C8963E; font-weight:700; letter-spacing:.8px; display:block; margin-bottom:2px; }
+
+    /* ── Loading bar ── */
+    #vbar {
+      position:absolute; top:54px; left:0; right:0; height:3px;
+      background:linear-gradient(90deg, #C8963E, #e8b86d); z-index:101;
+      transform:scaleX(0); transform-origin:left; transition:.3s; display:none;
+    }
+    #vbar.on { display:block; transform:scaleX(.65); }
+
+    /* ── Toast ── */
+    #vtst {
+      position:absolute; bottom:65px; left:50%; transform:translateX(-50%);
+      background:rgba(26,18,8,.75); color:#fff; padding:7px 18px; border-radius:40px;
+      font-size:12px; opacity:0; transition:.2s; z-index:200; pointer-events:none;
+      white-space:nowrap; max-width:92%;
+    }
+
+    /* ── Markers with photo ── */
+    .vm-pin { display:flex; flex-direction:column; align-items:center; cursor:pointer; transition:transform .15s; }
+    .vm-pin:hover { transform:scale(1.08); }
+    .vm-circle {
+      width:46px; height:46px; border-radius:50%; overflow:hidden;
+      border:3px solid #888; box-shadow:0 3px 10px rgba(0,0,0,.35);
+      background:#fff; display:flex; align-items:center; justify-content:center;
+      font-size:20px; flex-shrink:0;
+    }
+    .vm-circle img { width:100%; height:100%; object-fit:cover; }
+    .vm-label {
+      margin-top:3px; font-size:10px; font-weight:700;
+      background:rgba(255,255,255,.93); color:#1a1208;
+      border-radius:8px; padding:2px 6px;
+      max-width:92px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+      box-shadow:0 1px 5px rgba(0,0,0,.18);
+    }
+    /* card description */
+    #vcdesc {
+      font-size:12px; color:#555; line-height:1.55; margin-bottom:10px; display:none;
+      max-height:72px; overflow:hidden;
+      -webkit-mask-image:linear-gradient(180deg,#000 55%,transparent 100%);
+      mask-image:linear-gradient(180deg,#000 55%,transparent 100%);
+    }
+
+    /* Leaflet cluster override */
+    .marker-cluster-small  { background:#C8963E44; }
+    .marker-cluster-small div  { background:#C8963E; color:#fff; font-weight:700; }
+    .marker-cluster-medium { background:#b57d2e44; }
+    .marker-cluster-medium div { background:#b57d2e; color:#fff; font-weight:700; }
+    .marker-cluster-large  { background:#96610a44; }
+    .marker-cluster-large div  { background:#96610a; color:#fff; font-weight:700; }
+  </style>
+</head>
+<body>
+<div id="voy">
+  <div id="voy-hdr">
+    <div id="voy-logo">✈ <span>VOYASI</span></div>
+    <div id="voy-badge">✝ Latine</div>
+    <div id="voy-sw">
+      <input type="text" id="voy-si" placeholder="Rechercher un lieu…"/>
+      <div id="voy-res"></div>
+    </div>
+    <button id="voy-gps">📍 GPS</button>
+    <div id="voy-cnt">0 sites</div>
+  </div>
+
+  <div id="voy-map">
+    <div id="vcard">
+      <button id="vcx">✕</button>
+      <img id="vci" alt=""/>
+      <div class="vcb">
+        <div id="vctype"></div>
+        <div id="vcn"></div>
+        <div id="vcdesc"></div>
+        <div class="vbt">
+          <button class="bw" id="vbw">Wikipedia</button>
+          <button class="bm" id="vbm">Maps</button>
+          <button class="be" id="vbe">Météo</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="vbar"></div>
+  <div id="vcat"></div>
+  <button id="vabt">Alentour</button>
+  <div id="vanr">
+    <div class="vanh">
+      <span>🗺 Sites proches</span>
+      <button id="vanx" style="background:none;border:none;font-size:18px;cursor:pointer;color:#888;">✕</button>
+    </div>
+    <div id="vanl"></div>
+  </div>
+  <div id="vtst"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════
+   VOYASI · Carte Latine
+   Photo + Nom directement sur la carte
+   Description Wikipedia au clic
+═══════════════════════════════════════════════════════ */
+
+// ── Resize ───────────────────────────────────────────────
+function resize(){
+  var h=window.innerHeight;
+  document.getElementById('voy').style.height=h+'px';
+  document.getElementById('voy-map').style.height=(h-54)+'px';
+  if(window._map)window._map.invalidateSize();
+}
+resize();
+window.addEventListener('resize',resize);
+window.addEventListener('orientationchange',function(){setTimeout(resize,300);});
+
+// ── Config ───────────────────────────────────────────────
+function arN(n){return ''+n;}
+var IC={mosque:'🕌',church:'⛪',synagogue:'🕍',temple:'🛕',pyramid:'🔺',amphitheatre:'🏟',castle:'🏰',palace:'🏯',ruins:'🏺',lighthouse:'🗼',monument:'🗿',museum:'🏛',tower:'🏙',hotel:'🏨',park:'🌿',beach:'🏖',peak:'⛰',port:'⚓',attraction:'📍',def:'📌'};
+var LABEL={mosque:'Mosquée',church:'Église',synagogue:'Synagogue',temple:'Temple',pyramid:'Pyramide',amphitheatre:'Amphithéâtre',castle:'Château/Forteresse',palace:'Palais',ruins:'Site archéologique',lighthouse:'Phare',monument:'Monument',museum:'Musée',tower:'Tour/Gratte-ciel',hotel:'Hôtel',park:'Parc naturel',beach:'Plage',peak:'Sommet',port:'Port/Môle',attraction:'Attraction',def:'Site'};
+var CHIPS_TL={all:'Tous',mosque:'Mosquées 🕌',church:'Églises ⛪',ruins:'Ruines 🏺',castle:'Châteaux 🏰',pyramid:'Pyramides 🔺',museum:'Musées 🏛',hotel:'Hôtels 🏨',park:'Nature 🌿',port:'Ports ⚓'};
+var TYPE_COLORS={mosque:'#C8963E',church:'#C8963E',synagogue:'#6a5acd',temple:'#C8963E',pyramid:'#e8a020',amphitheatre:'#b05050',castle:'#607080',palace:'#9b5a9b',ruins:'#9b7653',lighthouse:'#ff9800',monument:'#8a6aaa',museum:'#c06060',tower:'#37474f',hotel:'#2196F3',park:'#4caf50',beach:'#00bcd4',peak:'#78909c',port:'#0077b6',attraction:'#ff5722',def:'#888'};
+var FILTER={all:null,mosque:['mosque'],church:['church','synagogue','temple'],ruins:['ruins','amphitheatre','monument','attraction'],castle:['castle','palace','lighthouse','tower'],pyramid:['pyramid'],museum:['museum'],hotel:['hotel'],park:['park','beach','peak'],port:['port']};
+
+// ── Helpers ──────────────────────────────────────────────
+function gi(t){return IC[t]||IC.def;}
+function gl(t){return LABEL[t]||t;}
+function bestName(t){
+  var k=['name:fr','name:en','name','name:ar','official_name'];
+  for(var i=0;i<k.length;i++){if(t[k[i]]&&t[k[i]].trim())return t[k[i]].trim();}
+  return null;
+}
+function getType(t){
+  if(t.harbour==='yes'||t['seamark:type']==='harbour'||t.landuse==='harbour'||t.amenity==='ferry_terminal')return 'port';
+  if(t.tourism==='hotel')return 'hotel';
+  if(t.boundary==='national_park'||t.leisure==='nature_reserve')return 'park';
+  if(t.natural==='beach')return 'beach';
+  if(t.natural==='peak'||t.natural==='volcano')return 'peak';
+  if(t.amenity==='place_of_worship'){
+    if(t.religion==='muslim')return 'mosque';
+    if(t.religion==='christian')return 'church';
+    if(t.religion==='jewish')return 'synagogue';
+    return 'temple';
+  }
+  if(t.historic==='pyramid')return 'pyramid';
+  if(t.historic==='amphitheatre'||t.historic==='amphitheater')return 'amphitheatre';
+  if(t.historic==='castle'||t.historic==='fort'||t.historic==='fortress')return 'castle';
+  if(t.historic==='palace')return 'palace';
+  if(t.historic==='archaeological_site'||t.historic==='ruins')return 'ruins';
+  if(t.historic==='lighthouse'||t.man_made==='lighthouse')return 'lighthouse';
+  if(t.historic==='monument'||t.historic==='memorial')return 'monument';
+  if(t.tourism==='museum'||t.amenity==='museum')return 'museum';
+  if(t.man_made==='tower'||t.building==='skyscraper')return 'tower';
+  if(t.historic)return 'ruins';
+  if(t.tourism==='attraction')return 'attraction';
+  return 'def';
+}
+
+// ── Map ──────────────────────────────────────────────────
+var map=L.map('voy-map',{zoomControl:true}).setView([[33.9,9.5],6]);
+window._map=map;
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
+  attribution:'© OpenStreetMap © CARTO',subdomains:'abcd',maxZoom:20
+}).addTo(map);
+var CL=L.markerClusterGroup({chunkedLoading:true,maxClusterRadius:50,
+  iconCreateFunction:function(c){
+    var n=c.getChildCount(),s=n<10?'small':n<50?'medium':'large';
+    return L.divIcon({html:'<div>'+n+'</div>',className:'marker-cluster marker-cluster-'+s,iconSize:[40,40]});
+  }
+});
+map.addLayer(CL);
+
+// ── State ────────────────────────────────────────────────
+var ALL=[],IDS=new Set(),total=0,ltimer;
+var FB=new Map(),LB=new Map();
+var busy1=false,busy2=false;
+var curFilter='all',curSite=null;
+function updateCnt(){document.getElementById('voy-cnt').textContent=total+' sites';}
+
+// ── Photo queue ──────────────────────────────────────────
+var PQ=[],PR=0,MAX_PR=4;
+function makeIcon(type,color,shortName,imgSrc){
+  var inner=imgSrc?'<img src="'+imgSrc+'" loading="lazy"/>':(gi(type));
+  return L.divIcon({
+    html:'<div class="vm-pin"><div class="vm-circle" style="border-color:'+color+'">'+inner+'</div>'
+        +'<div class="vm-label">'+shortName+'</div></div>',
+    iconSize:[92,66],className:'',iconAnchor:[46,49]
+  });
+}
+function processPhotoQueue(){
+  while(PR<MAX_PR&&PQ.length>0){
+    var item=PQ.shift();
+    PR++;
+    fetchWikiSummary(item.wu).then(function(data){
+      if(data&&data.thumbnail&&data.thumbnail.source){
+        item.marker.setIcon(makeIcon(item.type,item.color,item.shortName,data.thumbnail.source));
+      }
+      if(data&&data.extract) item.extract=data.extract;
+    }).catch(function(){}).finally(function(){PR--;processPhotoQueue();});
+  }
+}
+
+// ── Wikipedia ────────────────────────────────────────────
+async function fetchWikiSummary(wu){
+  if(!wu)return null;
+  try{
+    var p=wu.split('/wiki/');
+    if(p.length!==2)return null;
+    var m=wu.match(/([a-z]+)\.wikipedia/);
+    var lang=m?m[1]:'fr';
+    var r=await fetch('https://'+lang+'.wikipedia.org/api/rest_v1/page/summary/'+encodeURIComponent(decodeURIComponent(p[1])));
+    if(!r.ok)return null;
+    return await r.json();
+  }catch(e){return null;}
+}
+
+// ── Add marker ───────────────────────────────────────────
+function addMarker(lat,lon,name,type,wu,wdId){
+  var oid=type+'_'+lat.toFixed(4)+'_'+lon.toFixed(4);
+  var color=TYPE_COLORS[type]||'#888';
+  var shortName=name.length>14?name.substring(0,13)+'…':name;
+  var m=L.marker([lat,lon],{icon:makeIcon(type,color,shortName,null)});
+  var site={lat:lat,lon:lon,type:type,name:name,wu:wu,wdId:wdId,extract:null};
+  m.on('click',function(e){L.DomEvent.stopPropagation(e);showCard(site);});
+  ALL.push({m:m,type:type,site:site});
+  var grp=FILTER[curFilter];
+  if(!grp||grp.indexOf(type)>-1)CL.addLayer(m);
+  total++;updateCnt();
+  // Queue photo fetch for famous sites
+  if(wu){PQ.push({marker:m,wu:wu,type:type,color:color,shortName:shortName,extract:site});processPhotoQueue();}
+}
+
+// ── Card ─────────────────────────────────────────────────
+var vcard=document.getElementById('vcard');
+function posCard(ll){
+  var pt=map.latLngToContainerPoint(ll);
+  var mw=document.getElementById('voy-map').clientWidth;
+  var mh=document.getElementById('voy-map').clientHeight;
+  vcard.style.left=Math.max(124,Math.min(pt.x,mw-124))+'px';
+  vcard.style.top=Math.max(160,Math.min(pt.y,mh-10))+'px';
+}
+function showCard(site){
+  curSite=site;
+  document.getElementById('vctype').textContent=gl(site.type).toUpperCase();
+  document.getElementById('vcn').textContent=gi(site.type)+' '+site.name;
+  var desc=document.getElementById('vcdesc');
+  desc.style.display='none'; desc.textContent='';
+  document.getElementById('vci').style.display='none';
+  vcard.classList.add('open');
+  posCard([site.lat,site.lon]);
+  if(site.wu){
+    fetchWikiSummary(site.wu).then(function(data){
+      if(!data)return;
+      if(data.thumbnail&&data.thumbnail.source){
+        var img=document.getElementById('vci');
+        img.onload=function(){img.style.display='block';posCard([site.lat,site.lon]);};
+        img.onerror=function(){img.style.display='none';};
+        img.src=data.thumbnail.source;
+      }
+      if(data.extract){
+        var txt=data.extract;
+        // Remove first sentence if it's just "X is a ..." without content
+        desc.textContent=txt.length>240?txt.substring(0,237)+'…':txt;
+        desc.style.display='block';
+        posCard([site.lat,site.lon]);
+      }
+    });
+  }
+}
+map.on('move zoom',function(){if(curSite&&vcard.classList.contains('open'))posCard([curSite.lat,curSite.lon]);});
+map.on('click',function(){vcard.classList.remove('open');});
+document.getElementById('vcx').onclick=function(e){e.stopPropagation();vcard.classList.remove('open');};
+document.getElementById('vbw').onclick=function(){if(curSite&&curSite.wu)window.open(curSite.wu);
+  else if(curSite)window.open('https://fr.wikipedia.org/wiki/'+encodeURIComponent(curSite.name));};
+document.getElementById('vbm').onclick=function(){if(curSite)window.open('https://www.google.com/maps?q='+curSite.lat+','+curSite.lon);};
+document.getElementById('vbe').onclick=function(){if(curSite)window.open('https://open-meteo.com/fr/?lat='+curSite.lat+'&lon='+curSite.lon);};
+
+// ── Filter chips ─────────────────────────────────────────
+var cc=document.getElementById('vcat');
+['all','mosque','church','ruins','castle','pyramid','museum','hotel','park','port'].forEach(function(cat){
+  var b=document.createElement('button');
+  b.className='vca'+(cat==='all'?' on':'');
+  b.setAttribute('data-cat',cat);
+  b.textContent=CHIPS_TL[cat]||cat;
+  b.onclick=function(){
+    curFilter=cat;
+    var grp=FILTER[cat];
+    CL.clearLayers();
+    ALL.forEach(function(o){if(!grp||grp.indexOf(o.type)>-1)CL.addLayer(o.m);});
+    document.querySelectorAll('.vca').forEach(function(x){x.classList.remove('on');});
+    b.classList.add('on');
+    var cnt=!grp?ALL.length:ALL.filter(function(o){return grp.indexOf(o.type)>-1;}).length;
+    toast(CHIPS_TL[cat]+' : '+arN(cnt)+' sites');
+  };
+  cc.appendChild(b);
+});
+
+// ── Bar ──────────────────────────────────────────────────
+function showBar(){var b=document.getElementById('vbar');b.style.display='block';b.style.transform='scaleX(.6)';}
+function hideBar(){var b=document.getElementById('vbar');b.style.transform='scaleX(1)';setTimeout(function(){b.style.display='none';b.style.transform='scaleX(0)';},400);}
+
+// ── Overpass ─────────────────────────────────────────────
+async function overpass(q){
+  var ctrl=new AbortController(),tid=setTimeout(function(){ctrl.abort();},30000);
+  try{
+    var r=await fetch('https://overpass-api.de/api/interpreter',
+      {method:'POST',body:'data='+encodeURIComponent(q),signal:ctrl.signal});
+    clearTimeout(tid);
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    var data=await r.json(),n=0;
+    for(var i=0;i<data.elements.length;i++){
+      var el=data.elements[i],oid=el.type+el.id;
+      if(IDS.has(oid))continue;IDS.add(oid);
+      var lat=el.lat||(el.center&&el.center.lat);
+      var lon=el.lon||(el.center&&el.center.lon);
+      if(!lat||!lon)continue;
+      var t=el.tags||{},name=bestName(t);
+      if(!name)continue;
+      var type=getType(t),wu='';
+      if(t.wikipedia){
+        var wp=t.wikipedia.split(':');
+        wu=wp.length===2?'https://'+wp[0]+'.wikipedia.org/wiki/'+wp[1].replace(/ /g,'_')
+                        :'https://fr.wikipedia.org/wiki/'+t.wikipedia.replace(/ /g,'_');
+      }
+      addMarker(lat,lon,name,type,wu,t.wikidata||null);
+      n++;
+    }
+    return n;
+  }finally{clearTimeout(tid);}
+}
+
+// ── Load Famous (zoom≥7) ─────────────────────────────────
+async function loadFamous(){
+  if(busy1||map.getZoom()<7){if(!busy1)toast('Zoomez niveau 7+ pour charger');return;}
+  var b=map.getBounds();
+  var key=Math.floor(map.getZoom())+'_'+b.getCenter().lat.toFixed(1)+'_'+b.getCenter().lng.toFixed(1);
+  if(FB.has(key))return;
+  busy1=true;FB.set(key,true);showBar();
+  try{
+    var s=b.getSouth(),w=b.getWest(),n=b.getNorth(),e=b.getEast(),bb=s+','+w+','+n+','+e;
+    var q='[out:json][timeout:30][maxsize:5000000];('
+      +'node["historic"]["wikidata"]["name"]('+bb+');'
+      +'way["historic"]["wikidata"]["name"]('+bb+');'
+      +'relation["historic"]["wikidata"]["name"]('+bb+');'
+      +'node["man_made"="tower"]["wikidata"]["name"]('+bb+');'
+      +'way["man_made"="tower"]["wikidata"]["name"]('+bb+');'
+      +'way["building"="skyscraper"]["wikidata"]["name"]('+bb+');'
+      +'node["tourism"="attraction"]["wikidata"]["name"]('+bb+');'
+      +'way["tourism"="attraction"]["wikidata"]["name"]('+bb+');'
+      +'node["tourism"="museum"]["wikidata"]["name"]('+bb+');'
+      +'way["tourism"="museum"]["wikidata"]["name"]('+bb+');'
+      +"node[\"amenity\"=\"place_of_worship\"][\"religion\"=\"muslim\"][\"wikidata\"]("+bb+");"+"way[\"amenity\"=\"place_of_worship\"][\"religion\"=\"muslim\"][\"wikidata\"]("+bb+");"
+      +'node["tourism"="hotel"]["stars"~"^[45]"]["name"]('+bb+');'
+      +'way["tourism"="hotel"]["stars"~"^[45]"]["name"]('+bb+');'
+      +'node["tourism"="hotel"]["wikidata"]["name"]('+bb+');'
+      +'relation["boundary"="national_park"]["name"]('+bb+');'
+      +'way["boundary"="national_park"]["name"]('+bb+');'
+      +'way["leisure"="nature_reserve"]["name"]('+bb+');'
+      +'relation["leisure"="nature_reserve"]["name"]('+bb+');'
+      +'node["natural"="peak"]["ele"]["name"]('+bb+');'
+      +'node["natural"="beach"]["wikidata"]["name"]('+bb+');'
+      +'way["natural"="beach"]["wikidata"]["name"]('+bb+');'
+      +'node["harbour"="yes"]["name"]('+bb+');'
+      +'way["harbour"="yes"]["name"]('+bb+');'
+      +'node["seamark:type"="harbour"]["name"]('+bb+');'
+      +'node["amenity"="ferry_terminal"]["name"]('+bb+');'
+      +'way["landuse"="harbour"]["name"]('+bb+');'
+      +');out center 700;';
+    await overpass(q);
+    toast(arN(total)+' sites');
+  }catch(err){FB.delete(key);if(err.name!=='AbortError')toast('Erreur: '+err.message,3000);}
+  finally{busy1=false;hideBar();}
+}
+
+// ── Load Local (zoom≥11) ─────────────────────────────────
+async function loadLocal(){
+  if(busy2||map.getZoom()<11)return;
+  var b=map.getBounds();
+  var key='L_'+Math.floor(map.getZoom())+'_'+b.getCenter().lat.toFixed(2)+'_'+b.getCenter().lng.toFixed(2);
+  if(LB.has(key))return;
+  busy2=true;LB.set(key,true);showBar();
+  try{
+    var s=b.getSouth(),w=b.getWest(),n=b.getNorth(),e=b.getEast(),bb=s+','+w+','+n+','+e;
+    var q='[out:json][timeout:25][maxsize:3000000];('
+      +"node[\"amenity\"=\"place_of_worship\"][\"religion\"=\"christian\"][\"name\"]("+bb+");"+"way[\"amenity\"=\"place_of_worship\"][\"religion\"=\"christian\"][\"name\"]("+bb+");"
+      +');out center 1000;';
+    await overpass(q);
+  }catch(e){LB.delete(key);}
+  finally{busy2=false;hideBar();}
+}
+
+function triggerLoad(){clearTimeout(ltimer);ltimer=setTimeout(function(){loadFamous();if(map.getZoom()>=11)loadLocal();},600);}
+map.on('moveend zoomend',triggerLoad);
+setTimeout(function(){loadFamous();},800);
+
+// ── Search ───────────────────────────────────────────────
+var si=document.getElementById('voy-si'),sr=document.getElementById('voy-res'),stmr;
+si.addEventListener('input',function(){
+  clearTimeout(stmr);var q=si.value.trim();
+  if(!q){sr.style.display='none';return;}
+  stmr=setTimeout(function(){
+    fetch('https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(q)+'&format=json&limit=5&accept-language=fr,en')
+    .then(function(r){return r.json();}).then(function(d){
+      sr.innerHTML=d.length?d.map(function(i){
+        return '<div class="vri" onclick="goTo('+i.lat+','+i.lon+',\''+i.display_name.substring(0,55).replace(/'/g,"&#39;")+'\')">'+i.display_name.substring(0,55)+'</div>';
+      }).join(''):'<div class="vri" style="color:#999">Aucun résultat</div>';
+      sr.style.display='block';
+    }).catch(function(){sr.style.display='none';});
+  },400);
+});
+window.goTo=function(lat,lon,name){sr.style.display='none';si.value=name;map.flyTo([lat,lon],13);};
+document.addEventListener('click',function(e){if(!si.contains(e.target)&&!sr.contains(e.target))sr.style.display='none';});
+
+// ── Nearby ───────────────────────────────────────────────
+function hav(a,b,c,d){var R=6371,dl=(c-a)*Math.PI/180,dg=(d-b)*Math.PI/180,x=Math.sin(dl/2)*Math.sin(dl/2)+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dg/2)*Math.sin(dg/2);return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
+document.getElementById('vabt').onclick=function(){
+  var c=map.getCenter();
+  var list=ALL.map(function(o){var ll=o.m.getLatLng();return{site:o.site,d:hav(c.lat,c.lng,ll.lat,ll.lng)};
+  }).sort(function(a,b){return a.d-b.d;}).slice(0,20);
+  document.getElementById('vanl').innerHTML=list.map(function(it){
+    return '<div class="vani" onclick="map.flyTo(['+it.site.lat+','+it.site.lon+'],15);document.getElementById(\'vanr\').classList.remove(\'open\');">'
+      +'<span class="vani-type">'+gl(it.site.type)+'</span>'
+      +gi(it.site.type)+' '+it.site.name+'</div>';
+  }).join('');
+  document.getElementById('vanr').classList.add('open');
+};
+document.getElementById('vanx').onclick=function(){document.getElementById('vanr').classList.remove('open');};
+
+// ── GPS ──────────────────────────────────────────────────
+document.getElementById('voy-gps').onclick=function(){
+  navigator.geolocation&&navigator.geolocation.getCurrentPosition(
+    function(p){map.flyTo([p.coords.latitude,p.coords.longitude],13);},
+    function(){alert('Géolocalisation refusée');});
+};
+
+// ── Toast ────────────────────────────────────────────────
+function toast(msg,dur){var t=document.getElementById('vtst');t.textContent=msg;t.style.opacity='1';clearTimeout(t._tid);t._tid=setTimeout(function(){t.style.opacity='0';},dur||2500);}
+toast('Bienvenue · Zoomez niveau 7+ pour charger',4000);
+</script>
+</body>
+</html>
