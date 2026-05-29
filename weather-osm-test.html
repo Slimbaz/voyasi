@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Weather Click Map - OpenStreetMap</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<style>
+:root{--bg:#0b0e17;--card:#131826;--border:#1e293b;--text:#e2e8f0;--muted:#8892a4;--accent:#e85d75;--radius:12px}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif}
+
+#hdr{
+  position:fixed;top:0;left:0;right:0;z-index:1200;height:56px;
+  background:var(--card);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:8px;padding:0 12px;
+}
+#logo{font-size:14px;font-weight:700;color:#fff;white-space:nowrap;flex-shrink:0}
+#logo span{color:var(--accent)}
+
+#sw{flex:1;max-width:360px;position:relative}
+#si{
+  width:100%;height:34px;border:1px solid var(--border);background:#0d111f;
+  border-radius:20px;padding:0 36px 0 14px;font-size:13px;color:var(--text);outline:none
+}
+#si:focus{border-color:var(--accent)}
+#sb{
+  position:absolute;right:6px;top:50%;transform:translateY(-50%);
+  width:24px;height:24px;border:none;background:var(--accent);border-radius:50%;
+  cursor:pointer;color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center
+}
+#sd{
+  position:absolute;top:40px;left:0;right:0;background:var(--card);
+  border:1px solid var(--border);border-radius:10px;display:none;z-index:2000;
+  max-height:240px;overflow-y:auto
+}
+.sr{display:flex;align-items:center;gap:6px;padding:9px 12px;font-size:12px;color:var(--muted);cursor:pointer;border-bottom:1px solid var(--border)}
+.sr:last-child{border-bottom:none}
+.sr:hover{background:rgba(232,93,117,.08);color:#fff}
+.sl{padding:10px;color:var(--muted);font-size:12px;text-align:center}
+
+#gps{
+  width:34px;height:34px;border:1px solid var(--border);background:#0d111f;
+  border-radius:50%;cursor:pointer;color:var(--accent);font-size:15px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0
+}
+#gps:hover{border-color:var(--accent)}
+
+#tabs{
+  position:fixed;top:56px;left:0;right:0;z-index:1100;height:40px;
+  background:var(--card);border-bottom:1px solid var(--border);
+  display:flex;gap:2px;padding:4px 12px
+}
+.tab{
+  padding:6px 16px;border-radius:8px;border:none;background:transparent;
+  color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;transition:.15s
+}
+.tab.on{background:var(--accent);color:#fff}
+.tab:hover:not(.on){color:#fff;background:rgba(255,255,255,.05)}
+
+#lyrs{
+  position:fixed;top:104px;right:10px;z-index:1000;
+  display:flex;flex-direction:column;gap:4px
+}
+.lyb{
+  padding:7px 14px;border-radius:8px;border:1px solid var(--border);
+  background:rgba(19,24,38,.92);backdrop-filter:blur(6px);
+  font-size:12px;font-weight:600;cursor:pointer;color:var(--muted);transition:.15s;text-align:left
+}
+.lyb.on{border-color:var(--accent);color:#fff;background:rgba(232,93,117,.15)}
+.lyb:hover:not(.on){border-color:var(--accent);color:#fff}
+
+#map{position:fixed;top:96px;left:0;right:0;bottom:0}
+.leaflet-container{cursor:crosshair!important;background:#0a0c14}
+.leaflet-control-attribution{display:none!important}
+
+#pancarte{
+  position:fixed;z-index:1100;
+  background:rgba(19,24,38,.95);backdrop-filter:blur(8px);
+  border:1px solid var(--border);border-radius:var(--radius);
+  padding:14px 16px;min-width:200px;max-width:280px;
+  display:none;box-shadow:0 8px 32px rgba(0,0,0,.6);
+  pointer-events:auto
+}
+#pc-close{
+  position:absolute;top:6px;right:8px;border:none;background:none;
+  color:var(--muted);font-size:16px;cursor:pointer;padding:2px
+}
+#pc-close:hover{color:var(--accent)}
+#pc-title{font-size:13px;font-weight:700;color:#fff;margin-bottom:6px;padding-right:20px}
+#pc-coords{font-size:11px;color:var(--muted);margin-bottom:8px;font-family:monospace}
+#pc-data{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px}
+.pc-row{font-size:12px;display:flex;justify-content:space-between;padding:2px 0}
+.pc-label{color:var(--muted)}
+.pc-value{color:#fff;font-weight:600}
+#pc-place{font-size:11px;color:var(--muted);margin-top:6px}
+#pc-loading{font-size:12px;color:var(--muted);padding:8px 0}
+
+#ht{
+  position:fixed;z-index:900;pointer-events:none;
+  background:rgba(19,24,38,.9);border:1px solid var(--border);
+  border-radius:6px;padding:3px 8px;font-family:monospace;font-size:11px;color:var(--muted);
+  opacity:0;transition:opacity .1s;white-space:nowrap
+}
+#ht.v{opacity:1}
+
+#ctrl-mobile{
+  position:fixed;bottom:10px;left:10px;right:10px;z-index:1000;
+  display:none;gap:4px;flex-wrap:wrap;justify-content:center
+}
+@media(max-width:600px){
+  #ctrl-mobile{display:flex}
+  #lyrs{display:none}
+}
+</style>
+</head>
+<body>
+
+<header id="hdr">
+  <div id="logo">Weather <span>Click</span></div>
+  <div id="sw">
+    <input id="si" type="text" placeholder="&#128269; Search a city..." autocomplete="off"/>
+    <button id="sb" onclick="doSearch()">&#128269;</button>
+    <div id="sd"></div>
+  </div>
+  <button id="gps" onclick="useGPS()">&#128205;</button>
+</header>
+
+<div id="tabs">
+  <button class="tab on" data-tool="1" onclick="switchTool(1)">&#9729;&#65039; Tool 1: Clouds, Rain, Pressure</button>
+  <button class="tab" data-tool="2" onclick="switchTool(2)">&#127788;&#65039; Tool 2: Wind, Temp, Humidity</button>
+</div>
+
+<div id="lyrs">
+  <button class="lyb on" data-layer="clouds">&#9729;&#65039; Clouds</button>
+  <button class="lyb" data-layer="rain">&#127783;&#65039; Rain</button>
+  <button class="lyb" data-layer="pressure">&#127744; Pressure</button>
+</div>
+
+<div id="ctrl-mobile"><!-- mobile --></div>
+
+<div id="ht"></div>
+<div id="map"></div>
+
+<div id="pancarte">
+  <button id="pc-close" onclick="closePancarte()">&#10005;</button>
+  <div id="pc-title">Cloud Coverage</div>
+  <div id="pc-coords">Lat: &mdash; Lon: &mdash;</div>
+  <div id="pc-data"></div>
+  <div id="pc-place"></div>
+  <div id="pc-loading"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+var activeTool = 1;
+var activeLayer = 'clouds';
+var clat = null, clng = null;
+var mkr = null, srchT = null;
+var map, posX = 0, posY = 0;
+
+var LAYER_MAP = {
+  1: { layers: ['clouds','rain','pressure'] },
+  2: { layers: ['wind','temp','humidity'] }
+};
+
+var LAYER_LABELS = {
+  clouds:   { title: 'Cloud Coverage',        fields: ['cloud_cover','wind_speed','wind_direction','temperature'] },
+  rain:     { title: 'Precipitation',         fields: ['precipitation','humidity','pressure','temperature'] },
+  pressure: { title: 'Atmospheric Pressure',  fields: ['pressure','temperature','humidity','wind_speed'] },
+  wind:     { title: 'Wind Map',              fields: ['wind_speed','wind_gusts','wind_direction','temperature'] },
+  temp:     { title: 'Temperature',           fields: ['temperature','apparent_temperature','humidity','pressure'] },
+  humidity: { title: 'Humidity',              fields: ['humidity','dew_point','temperature','pressure'] }
+};
+
+var FIELD_META = {
+  cloud_cover:          { label: 'Clouds',      unit: '%',      decimals: 0 },
+  pressure:             { label: 'Pressure',    unit: 'hPa',    decimals: 0 },
+  humidity:             { label: 'Humidity',    unit: '%',      decimals: 0 },
+  temperature:          { label: 'Temp',        unit: '°C',     decimals: 1 },
+  apparent_temperature: { label: 'Feels like',  unit: '°C',     decimals: 1 },
+  precipitation:        { label: 'Rain',        unit: 'mm',     decimals: 1 },
+  wind_speed:           { label: 'Wind',        unit: 'km/h',   decimals: 1 },
+  wind_gusts:           { label: 'Gusts',       unit: 'km/h',   decimals: 1 },
+  wind_direction:       { label: 'Direction',   unit: '°',      decimals: 0 },
+  dew_point:            { label: 'Dew point',   unit: '°C',     decimals: 1 }
+};
+
+var OM_VARS = {
+  cloud_cover:          'cloud_cover',
+  pressure:             'surface_pressure',
+  humidity:             'relative_humidity_2m',
+  temperature:          'temperature_2m',
+  apparent_temperature: 'apparent_temperature',
+  precipitation:        'precipitation',
+  wind_speed:           'wind_speed_10m',
+  wind_gusts:           'wind_gusts_10m',
+  wind_direction:       'wind_direction_10m',
+  dew_point:            'dew_point_2m'
+};
+
+// MAP
+map = L.map('map', {
+  center: [36.8, 10.18],
+  zoom: 5,
+  zoomControl: true,
+  attributionControl: false
+});
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '&copy; OpenStreetMap'
+}).addTo(map);
+
+// HOVER
+var ht = document.getElementById('ht');
+map.on('mousemove', function(e) {
+  ht.textContent = e.latlng.lat.toFixed(4) + '°, ' + e.latlng.lng.toFixed(4) + '°';
+  ht.style.left = (e.originalEvent.clientX + 14) + 'px';
+  ht.style.top = (e.originalEvent.clientY - 10) + 'px';
+  ht.classList.add('v');
+});
+map.on('mouseout', function() { ht.classList.remove('v'); });
+
+// CLICK
+map.on('click', function(e) {
+  clat = e.latlng.lat;
+  clng = e.latlng.lng;
+  placeMarker(clat, clng);
+  posX = e.originalEvent.clientX;
+  posY = e.originalEvent.clientY;
+  showPancarte(clat, clng);
+  fetchWeather(clat, clng);
+});
+
+function placeMarker(lat, lng) {
+  if (mkr) map.removeLayer(mkr);
+  var html = '<div style="width:20px;height:20px;margin:-10px 0 0 -10px;border-radius:50%;background:rgba(232,93,117,.2);border:2.5px solid #e85d75;position:relative"><div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:6px;height:6px;border-radius:50%;background:#e85d75"></div></div>';
+  mkr = L.marker([lat, lng], { icon: L.divIcon({ className: '', html: html, iconSize: [20, 20] }) }).addTo(map);
+}
+
+// PANCARTE
+function showPancarte(lat, lng) {
+  var pc = document.getElementById('pancarte');
+  var cfg = LAYER_LABELS[activeLayer];
+  document.getElementById('pc-title').innerHTML = cfg.title;
+  document.getElementById('pc-coords').textContent = 'Lat: ' + lat.toFixed(4) + '° | Lon: ' + lng.toFixed(4) + '°';
+  document.getElementById('pc-data').innerHTML = '';
+  document.getElementById('pc-place').textContent = '';
+  document.getElementById('pc-loading').textContent = 'Loading…';
+
+  var w = Math.min(pc.offsetWidth || 240, 280);
+  var h = Math.min(pc.offsetHeight || 200, 400);
+  var vw = window.innerWidth, vh = window.innerHeight;
+  var x = Math.min(posX + 16, vw - w - 10);
+  var y = Math.min(posY - h - 10, vh - h - 10);
+  if (y < 100) y = Math.min(posY + 16, vh - h - 10);
+  pc.style.left = Math.max(10, x) + 'px';
+  pc.style.top = Math.max(100, y) + 'px';
+  pc.style.display = 'block';
+}
+
+function closePancarte() {
+  document.getElementById('pancarte').style.display = 'none';
+  document.getElementById('pc-loading').textContent = '';
+}
+
+function updatePancarte(data) {
+  var cfg = LAYER_LABELS[activeLayer];
+  var pcData = document.getElementById('pc-data');
+  document.getElementById('pc-loading').textContent = '';
+  pcData.innerHTML = '';
+
+  cfg.fields.forEach(function(field) {
+    var meta = FIELD_META[field];
+    if (!meta) return;
+    var omKey = OM_VARS[field];
+    var val = data.current ? data.current[omKey] : null;
+    if (val === null || val === undefined) val = '—';
+    else if (field === 'wind_direction') val = val + '°';
+    else val = Number(val).toFixed(meta.decimals) + ' ' + meta.unit;
+    pcData.insertAdjacentHTML('beforeend',
+      '<div class="pc-row"><span class="pc-label">' + meta.label + '</span><span class="pc-value">' + val + '</span></div>');
+  });
+}
+
+function setPlaceName(name) {
+  var el = document.getElementById('pc-place');
+  if (name) el.textContent = '📍 ' + name;
+}
+
+// OPEN-METEO
+async function fetchWeather(lat, lng) {
+  var params = new URLSearchParams({
+    latitude: lat,
+    longitude: lng,
+    current: Object.values(OM_VARS).join(',')
+  });
+  try {
+    var r = await fetch('https://api.open-meteo.com/v1/forecast?' + params.toString());
+    var data = await r.json();
+    updatePancarte(data);
+    reverseGeocode(lat, lng);
+  } catch(e) {
+    document.getElementById('pc-loading').textContent = '❌ Error';
+  }
+}
+
+async function reverseGeocode(lat, lng) {
+  try {
+    var r = await fetch('https://nominatim.openstreetmap.org/reverse?lat=' + lat + '&lon=' + lng + '&format=json&accept-language=en');
+    var d = await r.json();
+    var a = d.address || {};
+    var city = a.city || a.town || a.village || a.county || a.state || '';
+    var country = a.country || '';
+    setPlaceName(city ? city + (country ? ', ' + country : '') : country || '');
+  } catch(e) { setPlaceName(''); }
+}
+
+// TOOL SWITCH
+function switchTool(tool) {
+  activeTool = tool;
+  document.querySelectorAll('.tab').forEach(function(t) { t.classList.toggle('on', parseInt(t.dataset.tool) === tool); });
+  renderLayerBtns();
+  closePancarte();
+}
+
+function renderLayerBtns() {
+  var container = document.getElementById('lyrs');
+  var layers = LAYER_MAP[activeTool].layers;
+  var icons = { clouds:'☁️', rain:'🌧️', pressure:'🌀', wind:'🌬️', temp:'🌡️', humidity:'💧' };
+  var labels = { clouds:'Clouds', rain:'Rain', pressure:'Pressure', wind:'Wind', temp:'Temp', humidity:'Humidity' };
+
+  if (layers.indexOf(activeLayer) === -1) activeLayer = layers[0];
+
+  container.innerHTML = layers.map(function(ly) {
+    var on = ly === activeLayer ? ' on' : '';
+    return '<button class="lyb' + on + '" data-layer="' + ly + '">' + icons[ly] + ' ' + labels[ly] + '</button>';
+  }).join('');
+
+  container.querySelectorAll('.lyb').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      container.querySelectorAll('.lyb').forEach(function(b) { b.classList.remove('on'); });
+      this.classList.add('on');
+      activeLayer = this.dataset.layer;
+      closePancarte();
+      if (clat !== null && clng !== null) {
+        document.getElementById('pc-title').innerHTML = LAYER_LABELS[activeLayer].title;
+        fetchWeather(clat, clng);
+      }
+    });
+  });
+
+  var mob = document.getElementById('ctrl-mobile');
+  mob.innerHTML = container.innerHTML.replace(/lyb/g, 'lyb mob');
+  mob.querySelectorAll('.lyb').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      activeLayer = this.dataset.layer;
+      renderLayerBtns();
+      closePancarte();
+      if (clat !== null && clng !== null) {
+        document.getElementById('pc-title').innerHTML = LAYER_LABELS[activeLayer].title;
+        fetchWeather(clat, clng);
+      }
+    });
+  });
+}
+
+// SEARCH
+document.getElementById('si').addEventListener('input', function() {
+  clearTimeout(srchT);
+  var q = this.value.trim();
+  if (!q) { document.getElementById('sd').style.display = 'none'; return; }
+  srchT = setTimeout(function() { runSearch(q); }, 450);
+});
+document.getElementById('si').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') doSearch();
+  if (e.key === 'Escape') document.getElementById('sd').style.display = 'none';
+});
+document.addEventListener('click', function(e) { if (!e.target.closest('#sw')) document.getElementById('sd').style.display = 'none'; });
+
+function doSearch() {
+  var q = document.getElementById('si').value.trim();
+  if (q) runSearch(q);
+}
+
+async function runSearch(q) {
+  var sd = document.getElementById('sd');
+  sd.innerHTML = '<div class="sl">...</div>';
+  sd.style.display = 'block';
+  try {
+    var r = await fetch('https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(q) + '&format=json&limit=6&accept-language=en');
+    var res = await r.json();
+    if (!res.length) { sd.innerHTML = '<div class="sl">No results</div>'; return; }
+    sd.innerHTML = res.map(function(item) {
+      return '<div class="sr" onclick="pickResult(' + parseFloat(item.lat) + ',' + parseFloat(item.lon) + ')"><span>📍</span><span>' + item.display_name + '</span></div>';
+    }).join('');
+  } catch(e) { sd.innerHTML = '<div class="sl">Error</div>'; }
+}
+
+function pickResult(lat, lng) {
+  document.getElementById('sd').style.display = 'none';
+  document.getElementById('si').value = '';
+  map.flyTo([lat, lng], 10, { duration: 1.5 });
+  clat = lat; clng = lng;
+  placeMarker(lat, lng);
+  posX = window.innerWidth / 2;
+  posY = 200;
+  showPancarte(lat, lng);
+  fetchWeather(lat, lng);
+}
+
+// GPS
+function useGPS() {
+  if (!navigator.geolocation) { alert('GPS unavailable'); return; }
+  var btn = document.getElementById('gps');
+  btn.textContent = '⏳';
+  navigator.geolocation.getCurrentPosition(
+    function(pos) {
+      btn.textContent = '📍';
+      var lat = pos.coords.latitude, lng = pos.coords.longitude;
+      map.flyTo([lat, lng], 12, { duration: 1.5 });
+      clat = lat; clng = lng;
+      placeMarker(lat, lng);
+      posX = window.innerWidth / 2;
+      posY = 200;
+      showPancarte(lat, lng);
+      fetchWeather(lat, lng);
+    },
+    function() { btn.textContent = '📍'; alert('GPS denied'); }
+  );
+}
+
+// INIT
+renderLayerBtns();
+</script>
+</body>
+</html>

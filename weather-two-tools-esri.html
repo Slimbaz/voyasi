@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Weather Maps - Two Tools</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<style>
+:root{--bg:#0b0e17;--card:#131826;--border:#1e293b;--text:#e2e8f0;--muted:#8892a4;--accent:#e85d75;--radius:12px}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;padding:0 10px 40px}
+h2{font-size:15px;font-weight:700;color:#fff;margin:20px 0 10px;display:flex;align-items:center;gap:6px}
+.sec{border:1px solid var(--border);border-radius:var(--radius);background:var(--card);overflow:hidden;margin-bottom:24px}
+.sbar{display:flex;gap:4px;padding:8px;border-bottom:1px solid var(--border);align-items:center}
+.sbar input{flex:1;height:34px;border:1px solid var(--border);background:#0d111f;border-radius:20px;padding:0 12px;font-size:13px;color:var(--text);outline:none}
+.sbar input:focus{border-color:var(--accent)}
+.sbar button{height:34px;padding:0 14px;border:none;border-radius:20px;background:var(--accent);color:#fff;font-weight:600;font-size:12px;cursor:pointer;white-space:nowrap}
+.sbar .gps{width:34px;padding:0;border-radius:50%;font-size:15px;display:flex;align-items:center;justify-content:center}
+.mapwrap{position:relative;height:400px}
+@media(max-width:600px){.mapwrap{height:280px}}
+.map{position:absolute;inset:0}
+.leaflet-container{cursor:crosshair!important;background:#0a0c14}
+.leaflet-control-attribution{font-size:9px!important;background:rgba(11,18,32,.7)!important;color:#aaa!important;border-radius:4px!important;padding:0 6px}
+.leaflet-control-attribution a{color:var(--accent)!important}
+
+.lyrs{display:flex;gap:4px;padding:8px;border-top:1px solid var(--border);justify-content:center;flex-wrap:wrap}
+.lyb{padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:rgba(11,18,32,.88);backdrop-filter:blur(6px);font-size:12px;font-weight:600;cursor:pointer;color:var(--muted);transition:.15s}
+.lyb.on{border-color:var(--accent);color:#fff;background:rgba(232,93,117,.15)}
+.lyb:hover:not(.on){border-color:var(--accent);color:#fff}
+
+.pc{
+  position:absolute;z-index:800;display:none;
+  background:rgba(19,24,38,.95);backdrop-filter:blur(8px);
+  border:1px solid var(--border);border-radius:var(--radius);
+  padding:12px 14px;min-width:180px;max-width:260px;
+  box-shadow:0 8px 32px rgba(0,0,0,.6);pointer-events:auto;top:10px;left:10px
+}
+.pc-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.pc-title{font-size:13px;font-weight:700;color:#fff}
+.pc-close{border:none;background:none;color:var(--muted);font-size:15px;cursor:pointer;padding:2px}
+.pc-close:hover{color:var(--accent)}
+.pc-coords{font-size:10px;color:var(--muted);margin-bottom:6px;font-family:monospace}
+.pc-data{display:grid;grid-template-columns:1fr 1fr;gap:2px 8px;font-size:12px}
+.pc-r{display:flex;justify-content:space-between;padding:2px 0}
+.pc-l{color:var(--muted)}.pc-v{color:#fff;font-weight:600}
+.pc-place{font-size:10px;color:var(--muted);margin-top:4px}
+.pc-load{font-size:11px;color:var(--muted);padding:4px 0}
+</style>
+</head>
+<body>
+
+<h2>&#9729;&#65039; Tool 1: Clouds, Rain, Pressure</h2>
+<div class="sec" id="sec1">
+  <div class="sbar">
+    <input id="s1" type="text" placeholder="&#128269; Search a city or country…" autocomplete="off"/>
+    <button onclick="doSearch(1)">Search</button>
+    <button class="gps" onclick="useGPS(1)">&#128205;</button>
+  </div>
+  <div class="mapwrap">
+    <div id="m1" class="map"></div>
+    <div id="pc1" class="pc">
+      <div class="pc-hdr"><span class="pc-title" id="pc1t">Clouds</span><button class="pc-close" onclick="closePC(1)">&#10005;</button></div>
+      <div class="pc-coords" id="pc1c">Click on the map</div>
+      <div class="pc-data" id="pc1d"></div>
+      <div class="pc-place" id="pc1p"></div>
+      <div class="pc-load" id="pc1l"></div>
+    </div>
+  </div>
+  <div class="lyrs" id="l1">
+    <button class="lyb on" data-tool="1" data-l="clouds">&#9729;&#65039; Clouds</button>
+    <button class="lyb" data-tool="1" data-l="rain">&#127783;&#65039; Rain</button>
+    <button class="lyb" data-tool="1" data-l="pressure">&#127744; Pressure</button>
+  </div>
+</div>
+
+<h2>&#127788;&#65039; Tool 2: Wind, Temp, Humidity</h2>
+<div class="sec" id="sec2">
+  <div class="sbar">
+    <input id="s2" type="text" placeholder="&#128269; Search a city or country…" autocomplete="off"/>
+    <button onclick="doSearch(2)">Search</button>
+    <button class="gps" onclick="useGPS(2)">&#128205;</button>
+  </div>
+  <div class="mapwrap">
+    <div id="m2" class="map"></div>
+    <div id="pc2" class="pc">
+      <div class="pc-hdr"><span class="pc-title" id="pc2t">Wind</span><button class="pc-close" onclick="closePC(2)">&#10005;</button></div>
+      <div class="pc-coords" id="pc2c">Click on the map</div>
+      <div class="pc-data" id="pc2d"></div>
+      <div class="pc-place" id="pc2p"></div>
+      <div class="pc-load" id="pc2l"></div>
+    </div>
+  </div>
+  <div class="lyrs" id="l2">
+    <button class="lyb on" data-tool="2" data-l="wind">&#127788;&#65039; Wind</button>
+    <button class="lyb" data-tool="2" data-l="temp">&#127777;&#65039; Temp</button>
+    <button class="lyb" data-tool="2" data-l="humidity">&#128167; Humidity</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+/* ── CONFIG ── */
+var TILES = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
+var ATTR  = '&copy; Esri';
+var OM_CURRENT = 'temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,cloud_cover,wind_speed_10m,wind_gusts_10m,wind_direction_10m,surface_pressure,dew_point_2m';
+
+var LAYER_FIELDS = {
+  clouds:   ['cloud_cover','wind_speed_10m','wind_direction_10m','temperature_2m'],
+  rain:     ['precipitation','relative_humidity_2m','surface_pressure','temperature_2m'],
+  pressure: ['surface_pressure','temperature_2m','relative_humidity_2m','wind_speed_10m'],
+  wind:     ['wind_speed_10m','wind_gusts_10m','wind_direction_10m','temperature_2m'],
+  temp:     ['temperature_2m','apparent_temperature','relative_humidity_2m','surface_pressure'],
+  humidity: ['relative_humidity_2m','dew_point_2m','temperature_2m','surface_pressure']
+};
+
+var FIELD_LABELS = {
+  cloud_cover:          'Clouds %',
+  surface_pressure:     'Pressure hPa',
+  relative_humidity_2m: 'Humidity %',
+  temperature_2m:       'Temp °C',
+  apparent_temperature: 'Feels like °C',
+  precipitation:        'Rain mm',
+  wind_speed_10m:       'Wind km/h',
+  wind_gusts_10m:       'Gusts km/h',
+  wind_direction_10m:   'Direction °',
+  dew_point_2m:         'Dew point °C'
+};
+
+var LAYER_TITLES = {
+  clouds: 'Cloud Cover', rain: 'Precipitation', pressure: 'Pressure',
+  wind: 'Wind', temp: 'Temperature', humidity: 'Humidity'
+};
+
+/* ── STATE ── */
+var maps = {}, markers = {}, layers = {}, clat = {}, clng = {};
+
+/* ── INIT MAP ── */
+function initMap(tool, lat, lon, zoom) {
+  var id = 'm' + tool;
+  if (maps[tool]) {
+    maps[tool].setView([lat, lon], zoom);
+    maps[tool].invalidateSize();
+    return maps[tool];
+  }
+  var m = L.map(id, { center: [lat, lon], zoom: zoom, zoomControl: true });
+  L.tileLayer(TILES, { attribution: ATTR, maxZoom: 19 }).addTo(m);
+  m.on('click', function(e) { onMapClick(tool, e); });
+  maps[tool] = m;
+  // Initial marker
+  setMarker(tool, lat, lon);
+  setTimeout(function() { m.invalidateSize(); }, 300);
+  return m;
+}
+
+function setMarker(tool, lat, lon) {
+  if (markers[tool]) maps[tool].removeLayer(markers[tool]);
+  var html = '<div style="width:14px;height:14px;border-radius:50%;background:#e85d75;border:3px solid #fff;box-shadow:0 0 0 3px rgba(232,93,117,.4)"></div>';
+  markers[tool] = L.marker([lat, lon], { icon: L.divIcon({ className: '', html: html, iconSize: [14,14], iconAnchor: [7,7] }) }).addTo(maps[tool]);
+}
+
+function onMapClick(tool, e) {
+  var lat = e.latlng.lat, lng = e.latlng.lng;
+  clat[tool] = lat; clng[tool] = lng;
+  setMarker(tool, lat, lng);
+  showPC(tool, lat, lng);
+  fetchWeather(tool, lat, lng);
+}
+
+/* ── PANCARTE ── */
+function showPC(tool, lat, lng) {
+  var cur = getLayer(tool);
+  document.getElementById('pc' + tool + 't').textContent = LAYER_TITLES[cur];
+  document.getElementById('pc' + tool + 'c').textContent = 'Lat: ' + lat.toFixed(4) + '° | Lon: ' + lng.toFixed(4) + '°';
+  document.getElementById('pc' + tool + 'd').innerHTML = '';
+  document.getElementById('pc' + tool + 'p').textContent = '';
+  document.getElementById('pc' + tool + 'l').textContent = '';
+  document.getElementById('pc' + tool).style.display = 'block';
+}
+
+function closePC(tool) { document.getElementById('pc' + tool).style.display = 'none'; }
+
+function updatePC(tool, data) {
+  var cur = getLayer(tool);
+  var fields = LAYER_FIELDS[cur] || LAYER_FIELDS.clouds;
+  var container = document.getElementById('pc' + tool + 'd');
+  var loading = document.getElementById('pc' + tool + 'l');
+  if (loading) loading.textContent = '';
+  if (!container || !data.current) return;
+  container.innerHTML = '';
+  fields.forEach(function(f) {
+    var val = data.current[f];
+    if (val === null || val === undefined) val = '—';
+    else if (f === 'wind_direction_10m') val = Math.round(val) + '°';
+    else if (f === 'temperature_2m' || f === 'apparent_temperature') val = val.toFixed(1) + '°C';
+    else if (f === 'wind_speed_10m' || f === 'wind_gusts_10m') val = (val * 3.6).toFixed(1) + ' km/h';
+    else if (f === 'precipitation') val = val.toFixed(1) + ' mm';
+    else if (f === 'cloud_cover' || f === 'relative_humidity_2m') val = Math.round(val) + '%';
+    else if (f === 'surface_pressure') val = Math.round(val) + ' hPa';
+    else if (f === 'dew_point_2m') val = val.toFixed(1) + '°C';
+    else val = String(val);
+    container.insertAdjacentHTML('beforeend',
+      '<div class="pc-r"><span class="pc-l">' + (FIELD_LABELS[f] || f) + '</span><span class="pc-v">' + val + '</span></div>');
+  });
+}
+
+/* ── WEATHER ── */
+async function fetchWeather(tool, lat, lng) {
+  var loading = document.getElementById('pc' + tool + 'l');
+  if (loading) loading.textContent = 'Loading…';
+  try {
+    var r = await fetch('https://api.open-meteo.com/v1/forecast?latitude=' + lat.toFixed(4) + '&longitude=' + lng.toFixed(4) + '&current=' + OM_CURRENT);
+    var d = await r.json();
+    updatePC(tool, d);
+    reverseGeocode(tool, lat, lng);
+  } catch(e) {
+    if (loading) loading.textContent = '❌ Error';
+  }
+}
+
+async function reverseGeocode(tool, lat, lng) {
+  try {
+    var r = await fetch('https://nominatim.openstreetmap.org/reverse?lat=' + lat + '&lon=' + lng + '&format=json&accept-language=en');
+    var d = await r.json();
+    var a = d.address || {};
+    var name = a.city || a.town || a.village || a.county || a.state || a.country || '';
+    var el = document.getElementById('pc' + tool + 'p');
+    if (el) el.textContent = name ? '📍 ' + name : '';
+  } catch(e) {}
+}
+
+/* ── LAYER BUTTONS ── */
+function getLayer(tool) {
+  var sel = document.querySelector('#l' + tool + ' .lyb.on');
+  return sel ? sel.dataset.l : (tool === 1 ? 'clouds' : 'wind');
+}
+
+document.querySelectorAll('.lyb').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var tool = this.dataset.tool;
+    document.querySelectorAll('#l' + tool + ' .lyb').forEach(function(b) { b.classList.remove('on'); });
+    this.classList.add('on');
+    var lat = clat[tool], lng = clng[tool];
+    if (lat !== undefined && lng !== undefined) {
+      showPC(tool, lat, lng);
+      fetchWeather(tool, lat, lng);
+    }
+  });
+});
+
+/* ── SEARCH ── */
+async function doSearch(tool) {
+  var q = document.getElementById('s' + tool).value.trim();
+  if (!q) return;
+  try {
+    var r = await fetch('https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(q) + '&format=json&limit=1&accept-language=en');
+    var res = await r.json();
+    if (!res || !res.length) return;
+    var lat = parseFloat(res[0].lat), lon = parseFloat(res[0].lon);
+    maps[tool].setView([lat, lon], 8, { animate: true });
+    clat[tool] = lat; clng[tool] = lon;
+    setMarker(tool, lat, lon);
+    showPC(tool, lat, lon);
+    fetchWeather(tool, lat, lon);
+    document.getElementById('s' + tool).value = '';
+  } catch(e) {}
+}
+
+/* ── GPS ── */
+function useGPS(tool) {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(
+    function(pos) {
+      var lat = pos.coords.latitude, lng = pos.coords.longitude;
+      maps[tool].setView([lat, lng], 12, { animate: true });
+      clat[tool] = lat; clng[tool] = lng;
+      setMarker(tool, lat, lng);
+      showPC(tool, lat, lng);
+      fetchWeather(tool, lat, lng);
+    },
+    function() {}
+  );
+}
+
+/* ── BOOT ── */
+initMap(1, 36.8, 10.18, 5);
+initMap(2, 36.8, 10.18, 5);
+</script>
+</body>
+</html>
