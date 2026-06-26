@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="fr" dir="ltr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Monuments — Voyari</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+<style>
+:root{--amber:#f59e0b;--amber-l:#fef3c7;--sky:#0ea5e9;--sky-l:#e0f2fe;--rose:#f43f5e;
+  --bg:#f0f6ff;--surface:#fff;--card:#f8fafc;--border:#e2eaf4;
+  --text:#1e293b;--text2:#475569;--muted:#94a3b8;
+  --shadow:0 4px 24px rgba(245,158,11,.12);
+  --mono:'Space Mono',monospace;--sans:'Nunito',sans-serif;}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;overflow:hidden;font-family:var(--sans);color:var(--text);}
+
+/* HEADER */
+#hdr{position:fixed;top:0;left:0;right:0;z-index:1200;height:58px;background:var(--surface);
+  border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;padding:0 13px;
+  box-shadow:0 2px 12px rgba(245,158,11,.08);}
+#logo{display:flex;align-items:center;gap:7px;flex-shrink:0;}
+#logo-ico{font-size:26px;}
+#lt .ti{font-size:12px;font-weight:800;color:var(--amber);}
+#lt .su{font-size:8px;color:var(--muted);font-weight:600;letter-spacing:1px;text-transform:uppercase;}
+#sw{flex:1;max-width:420px;position:relative;}
+#si{width:100%;height:34px;border:2px solid var(--border);background:var(--card);border-radius:40px;
+  padding:0 38px 0 13px;font-family:var(--sans);font-size:13px;color:var(--text);outline:none;transition:.2s;}
+#si:focus{border-color:var(--amber);box-shadow:0 0 0 3px rgba(245,158,11,.1);}
+#sb{position:absolute;right:5px;top:50%;transform:translateY(-50%);width:25px;height:25px;
+  border:none;background:var(--amber);border-radius:50%;cursor:pointer;color:#fff;font-size:12px;
+  display:flex;align-items:center;justify-content:center;}
+#sd{position:absolute;top:40px;left:0;right:0;background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.1);overflow:hidden;display:none;z-index:2000;
+  max-height:220px;overflow-y:auto;}
+.sri{padding:9px 13px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:6px;}
+.sri:hover{background:var(--amber-l);}
+.srl{padding:10px;color:var(--muted);font-size:12px;text-align:center;}
+#gps{width:34px;height:34px;border:2px solid var(--border);background:var(--card);border-radius:50%;
+  cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+#gps.spin{animation:sp .7s linear infinite;}
+@keyframes sp{to{transform:rotate(360deg);}}
+#ls{display:flex;gap:2px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:3px;flex-shrink:0;}
+.lb{border:none;background:transparent;color:var(--muted);font-family:var(--mono);font-size:9px;
+  font-weight:700;padding:3px 8px;border-radius:5px;cursor:pointer;}
+.lb.on{background:var(--amber);color:#fff;}
+
+/* MAP */
+#map{position:fixed;top:58px;left:0;right:0;bottom:0;}
+
+/* CATEGORY BAR — bottom */
+#cats{position:fixed;bottom:8px;left:50%;transform:translateX(-50%);z-index:1100;
+  display:flex;gap:5px;background:rgba(255,255,255,.95);backdrop-filter:blur(12px);
+  border:1px solid var(--border);border-radius:30px;padding:6px 10px;
+  box-shadow:0 4px 20px rgba(0,0,0,.1);overflow-x:auto;scrollbar-width:none;
+  max-width:calc(100vw - 16px);}
+#cats::-webkit-scrollbar{display:none;}
+.catb{padding:5px 11px;border-radius:20px;border:1.5px solid transparent;
+  font-family:var(--sans);font-size:10px;font-weight:800;cursor:pointer;
+  color:var(--muted);background:transparent;transition:.15s;white-space:nowrap;flex-shrink:0;}
+.catb.on{border-color:var(--amber);color:var(--amber);background:var(--amber-l);}
+
+/* NEARBY PANEL */
+#nearby{position:fixed;top:58px;right:0;bottom:0;width:min(290px,90vw);
+  background:rgba(255,255,255,.96);backdrop-filter:blur(16px);
+  border-left:1px solid var(--border);z-index:1100;
+  display:flex;flex-direction:column;
+  transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);}
+#nearby.open{transform:translateX(0);}
+#nbhdr{padding:12px 14px 8px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+#nbhdr h3{font-size:12px;font-weight:800;color:var(--text);}
+#nbclose{border:none;background:transparent;font-size:16px;cursor:pointer;color:var(--muted);}
+#nblist{overflow-y:auto;flex:1;padding:6px;}
+.nbi{padding:8px 9px;border-radius:10px;cursor:pointer;
+  border:1.5px solid transparent;margin-bottom:4px;transition:.15s;}
+.nbi:hover{border-color:var(--amber);background:var(--amber-l);}
+.nbname{font-size:11px;font-weight:700;color:var(--text);}
+.nbsub{font-size:9px;color:var(--muted);font-family:var(--mono);margin-top:1px;}
+
+/* NEARBY TOGGLE BTN */
+#nbtog{position:fixed;top:68px;right:8px;z-index:1050;
+  padding:6px 12px;border-radius:20px;border:2px solid var(--amber);
+  background:rgba(255,255,255,.95);color:var(--amber);
+  font-weight:800;font-size:10px;cursor:pointer;font-family:var(--sans);
+  box-shadow:var(--shadow);white-space:nowrap;}
+
+/* DETAIL PANEL */
+#detail{position:fixed;left:6px;right:6px;bottom:58px;z-index:1100;
+  background:rgba(255,255,255,.95);backdrop-filter:blur(20px);
+  border-radius:20px;border:1px solid rgba(245,158,11,.25);
+  box-shadow:0 4px 30px rgba(0,0,0,.1);padding:14px;
+  transform:translateY(120%);opacity:0;transition:all .3s cubic-bezier(.4,0,.2,1);
+  pointer-events:none;}
+#detail.open{transform:translateY(0);opacity:1;pointer-events:auto;}
+#dthdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
+#dtname{font-size:14px;font-weight:800;color:var(--text);}
+#dtclose{border:none;background:transparent;cursor:pointer;font-size:16px;color:var(--muted);}
+#dtdesc{font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:10px;}
+#dtbtns{display:flex;gap:6px;flex-wrap:wrap;}
+.dtbtn{padding:6px 12px;border-radius:16px;border:1.5px solid var(--border);
+  background:var(--card);color:var(--text2);font-size:10px;font-weight:700;
+  font-family:var(--sans);cursor:pointer;}
+.dtbtn.pr{border-color:var(--sky);background:var(--sky);color:#fff;}
+.dtbtn:hover{border-color:var(--amber);color:var(--amber);}
+
+/* Marker */
+.wmk{font-size:20px;line-height:1;filter:drop-shadow(0 1px 3px rgba(0,0,0,.3));cursor:pointer;
+  transition:transform .12s;}
+.wmk:hover{transform:scale(1.25);}
+
+/* Toast */
+#toast{position:fixed;top:68px;left:50%;transform:translateX(-50%);
+  background:var(--amber);color:#fff;font-family:var(--mono);font-size:10px;
+  letter-spacing:1px;padding:6px 16px;border-radius:20px;z-index:3000;
+  opacity:0;pointer-events:none;transition:opacity .2s;white-space:nowrap;}
+#toast.on{opacity:1;}
+
+#zb{position:fixed;bottom:56px;left:10px;z-index:900;background:rgba(255,255,255,.9);
+  border:1px solid var(--border);border-radius:16px;padding:3px 10px;
+  font-family:var(--mono);font-size:10px;color:var(--muted);}
+</style>
+</head>
+<body>
+
+<header id="hdr">
+  <div id="logo">
+    <span id="logo-ico">🏛️</span>
+    <div id="lt">
+      <div class="ti">Voyari Monuments</div>
+      <div class="su" id="Lsub">Sites historiques & patrimoine</div>
+    </div>
+  </div>
+  <div id="sw">
+    <input id="si" type="text" autocomplete="off" placeholder="Chercher Paris, Rome, Luxor…"/>
+    <button id="sb" onclick="doSearch()">🔍</button>
+    <div id="sd"></div>
+  </div>
+  <button id="gps" onclick="useGPS()">📍</button>
+  <div id="ls">
+    <button class="lb on" onclick="setLang('fr')">FR</button>
+    <button class="lb" onclick="setLang('en')">EN</button>
+    <button class="lb" onclick="setLang('ar')">AR</button>
+  </div>
+</header>
+
+<div id="map"></div>
+<div id="zb">zoom: 3</div>
+
+<button id="nbtog" onclick="toggleNearby()">📍 Sites proches</button>
+
+<div id="nearby">
+  <div id="nbhdr"><h3>📍 Sites proches</h3><button id="nbclose" onclick="toggleNearby()">✕</button></div>
+  <div id="nblist"><p style="padding:16px;color:var(--muted);font-size:11px;text-align:center">Cherchez une ville ou cliquez sur la carte</p></div>
+</div>
+
+<div id="detail">
+  <div id="dthdr">
+    <div id="dtname">—</div>
+    <button id="dtclose" onclick="closeDetail()">✕</button>
+  </div>
+  <div id="dtdesc">—</div>
+  <div id="dtbtns">
+    <button class="dtbtn pr" onclick="openWeatherHere()">🌤 Météo ici</button>
+    <button class="dtbtn" id="dtWiki" onclick="openWiki()">📖 Wikipedia</button>
+    <button class="dtbtn" onclick="openGM()">↗ Maps</button>
+  </div>
+</div>
+
+<!-- Category bar at bottom -->
+<div id="cats">
+  <button class="catb on" onclick="setCat('all')">🌍 Tous</button>
+  <button class="catb" onclick="setCat('castle')">🏰 Châteaux</button>
+  <button class="catb" onclick="setCat('mosque')">🕌 Mosquées</button>
+  <button class="catb" onclick="setCat('church')">⛪ Églises</button>
+  <button class="catb" onclick="setCat('ruins')">🏚 Ruines</button>
+  <button class="catb" onclick="setCat('museum')">🏛 Musées</button>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const g = id => document.getElementById(id);
+
+// ─── SEEDS: monuments célèbres toujours disponibles ───────────────
+const SEEDS = [
+  {n:'Karnak Temple',lat:25.7188,lon:32.6573,t:'ruins',d:'Complexe religieux de Thèbes',w:'https://en.wikipedia.org/wiki/Karnak'},
+  {n:'Luxor Temple',lat:25.6995,lon:32.6391,t:'ruins',d:'Temple égyptien antique',w:'https://en.wikipedia.org/wiki/Luxor_Temple'},
+  {n:'Valley of the Kings',lat:25.7402,lon:32.6014,t:'ruins',d:'Nécropole royale du Nouvel Empire',w:'https://en.wikipedia.org/wiki/Valley_of_the_Kings'},
+  {n:'Temple of Hatshepsut',lat:25.7383,lon:32.6066,t:'ruins',d:'Temple funéraire de la reine Hatchepsout',w:'https://en.wikipedia.org/wiki/Mortuary_Temple_of_Hatshepsut'},
+  {n:'Pyramids of Giza',lat:29.9792,lon:31.1342,t:'ruins',d:'Grandes Pyramides de Gizeh',w:'https://en.wikipedia.org/wiki/Giza_pyramid_complex'},
+  {n:'Egyptian Museum Cairo',lat:30.0478,lon:31.2336,t:'museum',d:'Musée égyptien du Caire',w:'https://en.wikipedia.org/wiki/Egyptian_Museum'},
+  {n:'Sphinx of Giza',lat:29.9753,lon:31.1376,t:'monument',d:'Grand Sphinx de Gizeh',w:'https://en.wikipedia.org/wiki/Great_Sphinx_of_Giza'},
+  {n:'Abu Simbel',lat:22.3372,lon:31.6258,t:'ruins',d:'Temples rupestres de Ramsès II',w:'https://en.wikipedia.org/wiki/Abu_Simbel_temples'},
+  {n:'Colosseum',lat:41.8902,lon:12.4922,t:'ruins',d:'Amphithéâtre antique de Rome',w:'https://en.wikipedia.org/wiki/Colosseum'},
+  {n:'Pantheon Rome',lat:41.8986,lon:12.4769,t:'monument',d:'Temple antique romain',w:'https://en.wikipedia.org/wiki/Pantheon,_Rome'},
+  {n:'Vatican Museums',lat:41.9065,lon:12.4534,t:'museum',d:'Musées du Vatican',w:'https://en.wikipedia.org/wiki/Vatican_Museums'},
+  {n:'Pompeii',lat:40.7492,lon:14.4870,t:'ruins',d:'Cité romaine sous le Vésuve',w:'https://en.wikipedia.org/wiki/Pompeii'},
+  {n:'Eiffel Tower',lat:48.8584,lon:2.2945,t:'monument',d:'Tour Eiffel, Paris',w:'https://en.wikipedia.org/wiki/Eiffel_Tower'},
+  {n:'Louvre Museum',lat:48.8606,lon:2.3376,t:'museum',d:'Musée du Louvre',w:'https://en.wikipedia.org/wiki/Louvre'},
+  {n:'Notre-Dame de Paris',lat:48.8530,lon:2.3499,t:'church',d:'Cathédrale Notre-Dame',w:'https://en.wikipedia.org/wiki/Notre-Dame_de_Paris'},
+  {n:'Palace of Versailles',lat:48.8049,lon:2.1204,t:'monument',d:'Château de Versailles',w:'https://en.wikipedia.org/wiki/Palace_of_Versailles'},
+  {n:'Hagia Sophia',lat:41.0086,lon:28.9802,t:'mosque',d:'Sainte-Sophie, Istanbul',w:'https://en.wikipedia.org/wiki/Hagia_Sophia'},
+  {n:'Topkapi Palace',lat:41.0115,lon:28.9833,t:'monument',d:'Palais ottoman historique',w:'https://en.wikipedia.org/wiki/Topkap%C4%B1_Palace'},
+  {n:'Sultan Ahmed Mosque',lat:41.0054,lon:28.9768,t:'mosque',d:'Mosquée Bleue d\'Istanbul',w:'https://en.wikipedia.org/wiki/Sultan_Ahmed_Mosque'},
+  {n:'Acropolis',lat:37.9715,lon:23.7257,t:'ruins',d:'Citadelle antique d\'Athènes',w:'https://en.wikipedia.org/wiki/Acropolis_of_Athens'},
+  {n:'Colosseum Athens (Odeon)',lat:37.9680,lon:23.7241,t:'monument',d:'Odéon d\'Hérode Atticus',w:'https://en.wikipedia.org/wiki/Odeon_of_Herodes_Atticus'},
+  {n:'Alhambra',lat:37.1760,lon:-3.5881,t:'castle',d:'Palais mauresque de Grenade',w:'https://en.wikipedia.org/wiki/Alhambra'},
+  {n:'Sagrada Família',lat:41.4036,lon:2.1744,t:'church',d:'Basilique de Gaudí',w:'https://en.wikipedia.org/wiki/Sagrada_Fam%C3%ADlia'},
+  {n:'Stonehenge',lat:51.1789,lon:-1.8262,t:'monument',d:'Monument mégalithique',w:'https://en.wikipedia.org/wiki/Stonehenge'},
+  {n:'Tower of London',lat:51.5081,lon:-0.0759,t:'castle',d:'Forteresse royale de Londres',w:'https://en.wikipedia.org/wiki/Tower_of_London'},
+  {n:'Neuschwanstein Castle',lat:47.5576,lon:10.7498,t:'castle',d:'Château de Bavière',w:'https://en.wikipedia.org/wiki/Neuschwanstein_Castle'},
+  {n:'Taj Mahal',lat:27.1751,lon:78.0421,t:'monument',d:'Mausolée moghol à Agra',w:'https://en.wikipedia.org/wiki/Taj_Mahal'},
+  {n:'Great Wall of China',lat:40.4319,lon:116.5704,t:'monument',d:'Grande Muraille de Chine',w:'https://en.wikipedia.org/wiki/Great_Wall_of_China'},
+  {n:'Forbidden City',lat:39.9169,lon:116.3907,t:'monument',d:'Palais impérial de Pékin',w:'https://en.wikipedia.org/wiki/Forbidden_City'},
+  {n:'Angkor Wat',lat:13.4125,lon:103.8670,t:'ruins',d:'Plus grand complexe religieux du monde',w:'https://en.wikipedia.org/wiki/Angkor_Wat'},
+  {n:'Petra',lat:30.3285,lon:35.4444,t:'ruins',d:'Cité nabatéenne en Jordanie',w:'https://en.wikipedia.org/wiki/Petra'},
+  {n:'Machu Picchu',lat:-13.1631,lon:-72.5450,t:'ruins',d:'Cité inca dans les Andes',w:'https://en.wikipedia.org/wiki/Machu_Picchu'},
+  {n:'Chichen Itza',lat:20.6843,lon:-88.5678,t:'ruins',d:'Site maya classique',w:'https://en.wikipedia.org/wiki/Chichen_Itza'},
+  {n:'Hassan II Mosque',lat:33.6087,lon:-7.6326,t:'mosque',d:'Grande Mosquée de Casablanca',w:'https://en.wikipedia.org/wiki/Hassan_II_Mosque'},
+  {n:'Medina of Fez',lat:34.0631,lon:-4.9754,t:'monument',d:'Plus grande médina du monde',w:'https://en.wikipedia.org/wiki/Fes_el-Bali'},
+  {n:'Carthage',lat:36.8565,lon:10.3250,t:'ruins',d:'Ruines de l\'antique Carthage',w:'https://en.wikipedia.org/wiki/Carthage'},
+  {n:'El Jem Amphitheatre',lat:35.2968,lon:10.7077,t:'ruins',d:'Amphithéâtre romain d\'El Jem',w:'https://en.wikipedia.org/wiki/El_Djem'},
+  {n:'Dougga',lat:36.4225,lon:9.2197,t:'ruins',d:'Site archéologique romain',w:'https://en.wikipedia.org/wiki/Dougga'},
+  {n:'Bardo National Museum',lat:36.8093,lon:10.1284,t:'museum',d:'Musée national de Tunis',w:'https://en.wikipedia.org/wiki/Bardo_National_Museum'},
+  {n:'Sheikh Zayed Grand Mosque',lat:24.4128,lon:54.4752,t:'mosque',d:'Grande Mosquée d\'Abu Dhabi',w:'https://en.wikipedia.org/wiki/Sheikh_Zayed_Grand_Mosque'},
+  {n:'Imam Mosque Isfahan',lat:32.6572,lon:51.6760,t:'mosque',d:'Mosquée de l\'Imam à Ispahan',w:'https://en.wikipedia.org/wiki/Shah_Mosque,_Isfahan'},
+  {n:'Kremlin Moscow',lat:55.7517,lon:37.6178,t:'monument',d:'Kremlin de Moscou',w:'https://en.wikipedia.org/wiki/Moscow_Kremlin'},
+];
+
+const ICONS = {castle:'🏰',ruins:'⛏️',monument:'🗿',mosque:'🕌',church:'⛪',museum:'🏛️',default:'📍'};
+function ico(t){return ICONS[t]||ICONS.default;}
+
+// ─── STATE ───────────────────────────────────────────────────────
+let lang='fr', currentCat='all', clat=null, clng=null;
+let srchT=null, currentMon=null;
+const allMarkers={}; // pageid or name → marker
+
+// ─── MAP ─────────────────────────────────────────────────────────
+const map = L.map('map',{center:[25,20],zoom:3,zoomControl:true,attributionControl:false});
+L.control.attribution({prefix:false}).addTo(map);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+  {maxZoom:19,subdomains:'abcd',attribution:'© OSM © Carto'}).addTo(map);
+
+map.on('zoomend',()=>g('zb').textContent=`zoom: ${map.getZoom()}`);
+map.on('click',e=>{ clat=e.latlng.lat; clng=e.latlng.lng; loadNearby(clat,clng); });
+map.on('moveend',()=>{ if(map.getZoom()>=7) fetchOverpass(); });
+
+// ─── SEED MARKERS — always on map ────────────────────────────────
+const seedLayer = L.layerGroup().addTo(map);
+const overpassLayer = L.layerGroup().addTo(map);
+
+function showSeeds(){
+  seedLayer.clearLayers();
+  SEEDS.forEach(s=>{
+    if(currentCat!=='all'&&s.t!==currentCat) return;
+    const el=document.createElement('div');
+    el.className='wmk'; el.textContent=ico(s.t); el.title=s.n;
+    const mkr=L.marker([s.lat,s.lon],{
+      icon:L.divIcon({className:'',html:el.outerHTML,iconSize:[26,26],iconAnchor:[13,13]})
+    });
+    mkr.on('click',()=>showDetail(s.n,s.d,s.w,s.lat,s.lon,s.t));
+    seedLayer.addLayer(mkr);
+  });
+}
+showSeeds(); // ← appelé immédiatement au chargement
+
+// ─── OVERPASS — zones précises ────────────────────────────────────
+let ovFetching=false;
+async function fetchOverpass(){
+  if(ovFetching) return;
+  ovFetching=true;
+  const b=map.getBounds();
+  const s=b.getSouth().toFixed(4),w=b.getWest().toFixed(4),n=b.getNorth().toFixed(4),e=b.getEast().toFixed(4);
+  const catQ = currentCat==='all'
+    ? `node["historic"](${s},${w},${n},${e});way["historic"](${s},${w},${n},${e});node["tourism"~"attraction|museum"](${s},${w},${n},${e});`
+    : currentCat==='castle'  ? `node["historic"~"castle|fort"](${s},${w},${n},${e});way["historic"~"castle|fort"](${s},${w},${n},${e});`
+    : currentCat==='mosque'  ? `node["amenity"="place_of_worship"]["religion"="muslim"](${s},${w},${n},${e});`
+    : currentCat==='church'  ? `node["amenity"="place_of_worship"]["religion"="christian"](${s},${w},${n},${e});`
+    : currentCat==='ruins'   ? `node["historic"~"ruins|archaeological_site"](${s},${w},${n},${e});way["historic"~"ruins|archaeological_site"](${s},${w},${n},${e});`
+    : `node["tourism"="museum"](${s},${w},${n},${e});`;
+  const q=`[out:json][timeout:10];(${catQ});out center tags 60;`;
+  try{
+    const r=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:`data=${encodeURIComponent(q)}`});
+    const d=await r.json();
+    overpassLayer.clearLayers();
+    const seen=new Set(SEEDS.map(s=>s.n.toLowerCase()));
+    (d.elements||[]).forEach(el=>{
+      if(!el.tags) return;
+      const nm=el.tags.name||el.tags['name:fr']||el.tags['name:en']||el.tags.historic||el.tags.tourism;
+      if(!nm||seen.has(nm.toLowerCase())) return;
+      seen.add(nm.toLowerCase());
+      const lt=el.lat||(el.center?.lat), ln=el.lon||(el.center?.lon);
+      if(!lt||!ln) return;
+      const tp=el.tags.historic==='castle'?'castle':el.tags.religion==='muslim'?'mosque':el.tags.religion==='christian'?'church':el.tags.historic==='ruins'||el.tags.historic==='archaeological_site'?'ruins':el.tags.tourism==='museum'?'museum':'monument';
+      const el2=document.createElement('div');
+      el2.className='wmk'; el2.textContent=ico(tp); el2.title=nm;
+      const mkr=L.marker([lt,ln],{
+        icon:L.divIcon({className:'',html:`<div class="wmk">${ico(tp)}</div>`,iconSize:[22,22],iconAnchor:[11,11]})
+      });
+      mkr.on('click',()=>showDetail(nm,el.tags.description||'',el.tags.wikipedia||'',lt,ln,tp));
+      overpassLayer.addLayer(mkr);
+    });
+  }catch(e){}
+  ovFetching=false;
+}
+
+// ─── CATEGORY FILTER ─────────────────────────────────────────────
+function setCat(cat){
+  currentCat=cat;
+  document.querySelectorAll('.catb').forEach(b=>b.classList.remove('on'));
+  document.querySelector(`.catb[onclick="setCat('${cat}')"]`)?.classList.add('on');
+  showSeeds();
+  overpassLayer.clearLayers();
+  if(map.getZoom()>=7) fetchOverpass();
+}
+
+// ─── DETAIL PANEL ────────────────────────────────────────────────
+function showDetail(name,desc,wiki,lat,lon,type){
+  currentMon={name,desc,wiki,lat,lon,type};
+  clat=lat; clng=lon;
+  g('dtname').textContent=`${ico(type)} ${name}`;
+  g('dtdesc').textContent=desc||'—';
+  g('dtWiki').style.display=wiki?'inline-flex':'none';
+  g('detail').classList.add('open');
+}
+function closeDetail(){g('detail').classList.remove('open');}
+function openWiki(){if(currentMon?.wiki) window.open(currentMon.wiki,'_blank');}
+function openGM(){if(clat) window.open(`https://www.google.com/maps?q=${clat},${clng}`,'_blank');}
+function openWeatherHere(){if(clat) window.open(`weather-module.html?lat=${clat.toFixed(4)}&lon=${clng.toFixed(4)}`);}
+
+// ─── NEARBY LIST ─────────────────────────────────────────────────
+function dist(a,b,c,d){
+  const R=6371,dl=(c-a)*Math.PI/180,dn=(d-b)*Math.PI/180;
+  return R*2*Math.atan2(Math.sqrt(Math.sin(dl/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dn/2)**2),1);
+}
+function loadNearby(lat,lon){
+  const nearby=SEEDS
+    .filter(s=>currentCat==='all'||s.t===currentCat)
+    .map(s=>({...s,d:dist(lat,lon,s.lat,s.lon)}))
+    .sort((a,b)=>a.d-b.d).slice(0,15);
+  const list=g('nblist');
+  list.innerHTML=nearby.map(s=>`
+    <div class="nbi" onclick="flyTo(${s.lat},${s.lon},'${s.n.replace(/'/g,"\\'")}','${s.t}')">
+      <div class="nbname">${ico(s.t)} ${s.n}</div>
+      <div class="nbsub">${s.d<1?Math.round(s.d*1000)+' m':s.d.toFixed(1)+' km'}</div>
+    </div>`).join('');
+  g('nearby').classList.add('open');
+}
+function flyTo(lat,lon,name,type){
+  map.flyTo([lat,lon],14,{duration:1.2});
+  showDetail(name,'',SEEDS.find(s=>s.n===name)?.w||'',lat,lon,type);
+  g('nearby').classList.remove('open');
+}
+function toggleNearby(){
+  const p=g('nearby');
+  if(p.classList.contains('open')){p.classList.remove('open');}
+  else{if(clat) loadNearby(clat,clng); else loadNearby(25,20);}
+}
+
+// ─── GPS ────────────────────────────────────────────────────────
+function useGPS(){
+  const b=g('gps'); b.classList.add('spin');
+  navigator.geolocation.getCurrentPosition(
+    p=>{b.classList.remove('spin');clat=p.coords.latitude;clng=p.coords.longitude;
+       map.flyTo([clat,clng],11,{duration:1.4});loadNearby(clat,clng);fetchOverpass();},
+    ()=>{b.classList.remove('spin');showToast('GPS indisponible');}
+  );
+}
+
+// ─── SEARCH ─────────────────────────────────────────────────────
+g('si').addEventListener('input',()=>{
+  clearTimeout(srchT);
+  const q=g('si').value.trim();
+  if(!q){g('sd').style.display='none';return;}
+  // Check seeds first
+  const hit=SEEDS.filter(s=>s.n.toLowerCase().includes(q.toLowerCase())||
+    (lang==='fr'&&s.d.toLowerCase().includes(q.toLowerCase())));
+  if(hit.length){
+    const sd=g('sd');
+    sd.innerHTML=hit.slice(0,5).map(s=>`
+      <div class="sri" onclick="pickSeed(${s.lat},${s.lon},'${s.n.replace(/'/g,"\\'")}','${s.t}')">
+        ${ico(s.t)} ${s.n}
+      </div>`).join('');
+    sd.style.display='block';
+  }
+  srchT=setTimeout(()=>runSearch(q),450);
+});
+g('si').addEventListener('keydown',e=>{if(e.key==='Enter')doSearch();if(e.key==='Escape')g('sd').style.display='none';});
+document.addEventListener('click',e=>{if(!e.target.closest('#sw'))g('sd').style.display='none';});
+function doSearch(){const q=g('si').value.trim();if(q)runSearch(q);}
+
+function pickSeed(lat,lon,name,type){
+  g('sd').style.display='none'; g('si').value=name;
+  clat=lat; clng=lon;
+  map.flyTo([lat,lon],13,{duration:1.2});
+  showDetail(name,SEEDS.find(s=>s.n===name)?.d||'',SEEDS.find(s=>s.n===name)?.w||'',lat,lon,type);
+  loadNearby(lat,lon);
+}
+
+async function runSearch(q){
+  const sd=g('sd');
+  sd.innerHTML='<div class="srl">…</div>'; sd.style.display='block';
+  try{
+    const r=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5&accept-language=${lang}`);
+    const res=await r.json();
+    if(!res.length){sd.innerHTML='<div class="srl">Aucun résultat</div>';return;}
+    sd.innerHTML=res.map(x=>`
+      <div class="sri" onclick="pickResult(${parseFloat(x.lat)},${parseFloat(x.lon)})">
+        📍 <span style="font-size:11px">${x.display_name.slice(0,55)}</span>
+      </div>`).join('');
+  }catch{sd.innerHTML='<div class="srl">Erreur</div>';}
+}
+function pickResult(lat,lon){
+  g('sd').style.display='none'; g('si').value='';
+  clat=lat; clng=lon;
+  map.flyTo([lat,lon],11,{duration:1.2});
+  loadNearby(lat,lon);
+  setTimeout(fetchOverpass,1200);
+}
+
+// ─── LANG ────────────────────────────────────────────────────────
+function setLang(l){
+  lang=l; document.documentElement.lang=l; document.documentElement.dir=l==='ar'?'rtl':'ltr';
+  document.querySelectorAll('.lb').forEach(b=>b.classList.remove('on'));
+  document.querySelector(`.lb[onclick="setLang('${l}')"]`)?.classList.add('on');
+}
+
+function showToast(msg){const t=g('toast');t.textContent=msg;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2200);}
+</script>
+</body>
+</html>
